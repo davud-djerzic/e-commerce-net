@@ -47,9 +47,19 @@ namespace E_commerce_API.Controllers
         public async Task<ActionResult<Product>> getProductById(int id)
         {
             // Prvo tražimo proizvod po ID-u
-            var product = await _context.Products
-                .Include(p => p.Category) // Uključite kategoriju ako je potrebno
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var product = await _context.Products.Select(p => new
+            {
+                p.Id,
+                p.ProductCode,
+                p.ProductName,
+                p.Price,
+                p.StockQuantity,
+                p.Weight,
+                p.Manufacturer,
+                p.Description,
+                p.CategoryId, // Vraćamo samo ID kategorije
+                p.Category.CategoryName,
+            }).FirstOrDefaultAsync(p => p.Id == id);
 
             // Ako proizvod nije pronađen, vraćamo NotFound status
             if (product == null)
@@ -139,6 +149,77 @@ namespace E_commerce_API.Controllers
             return NoContent(); // Vratite 204 No Content na uspješno ažuriranje
         }
 
+        [HttpGet("{bottomPrice}, {upperPrice}")]
+        public async Task<ActionResult<IEnumerable<Product>>> getProductsByPrice(decimal bottomPrice, decimal upperPrice)
+        {
+            if (bottomPrice <= 0 || upperPrice <= 0)
+            {
+                return BadRequest("Price must be positive");
+            }
 
+            var products = await _context.Products.Where(p => p.Price >= bottomPrice && p.Price <= upperPrice).ToListAsync();
+
+            if (!products.Any())
+            {
+                return NotFound("Products not found");
+            }
+
+            return Ok(products);
+        }
+
+        [HttpGet("/category/{categoryId}")]
+        public async Task<ActionResult<IEnumerable<Product>>> getProductsByCategory(int categoryId)
+        {
+            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == categoryId);
+            if (!categoryExists)
+            {
+                return BadRequest("Category does not exist.");
+            }
+
+            var products = await _context.Products.Select(p => new
+            {
+                p.Id,
+                p.ProductCode,
+                p.ProductName,
+                p.Price,
+                p.StockQuantity,
+                p.Weight,
+                p.Manufacturer,
+                p.Description,
+                p.CategoryId, // Vraćamo samo ID kategorije
+                p.Category.CategoryName,
+            }).Where(p => p.CategoryId == categoryId).ToListAsync();
+
+            if (!products.Any())
+            {
+                return NotFound("Products not found");
+            }
+
+            return Ok(products);
+        }
+
+        [HttpGet("/availability")]
+        public async Task <ActionResult<IEnumerable<Product>>> getProductsByAvailability()
+        {
+            var products = await _context.Products.Select(p => new
+            {
+                p.Id,
+                p.ProductCode,
+                p.ProductName,
+                p.Price,
+                p.StockQuantity,
+                p.Weight,
+                p.Manufacturer,
+                p.Description,
+                p.CategoryId, // Vraćamo samo ID kategorije
+                p.Category.CategoryName,
+            }).Where(p => p.StockQuantity > 0).ToListAsync();
+            if (!products.Any())
+            {
+                return NotFound("Product not found");
+            }
+
+            return Ok(products);
+        }
     }
 }
