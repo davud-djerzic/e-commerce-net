@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure.Internal;
 using Microsoft.OpenApi.Any;
 using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.AspNetCore.Authorization;
 
 namespace E_commerce_API.Controllers
 {
@@ -20,7 +21,7 @@ namespace E_commerce_API.Controllers
             _context = context;
         }
 
-        [HttpGet]
+        [HttpGet, Authorize(Roles = "Admin, User")]
         public async Task<ActionResult<IEnumerable<Product>>> getProducts()
         {
             var products = await _context.Products
@@ -43,7 +44,7 @@ namespace E_commerce_API.Controllers
         }
 
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}"), Authorize(Roles = "Admin, User")]
         public async Task<ActionResult<Product>> getProductById(int id)
         {
             // Prvo tražimo proizvod po ID-u
@@ -71,7 +72,7 @@ namespace E_commerce_API.Controllers
             return Ok(product);
         }
 
-        [HttpPost]
+        [HttpPost, Authorize(Roles = "Admin")]
         public async Task<ActionResult<Product>> addProduct(ProductDTO productDto)
         {
             // Proverite da li kategorija sa datim ID-om postoji
@@ -97,10 +98,10 @@ namespace E_commerce_API.Controllers
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(getProductById), new { id = product.Id }, product);
+            return CreatedAtAction(nameof(getProductById), new { id = product.Id }, productDto);
         }
 
-        [HttpDelete]
+        [HttpDelete, Authorize(Roles = "Admin")]
         public async Task<ActionResult<Product>> deleteProduct(int id)
         {
             var dbProduct = await _context.Products.FindAsync(id);
@@ -114,13 +115,9 @@ namespace E_commerce_API.Controllers
                    
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("{id}"), Authorize(Roles = "Admin")]
         public async Task<IActionResult> updateProduct(int id, ProductDTO productDto)
         {
-            if (id != productDto.Id)
-            {
-                return NotFound("Product not found"); // Ako ID ne odgovara
-            }
             // Provjerite da li kategorija sa datim ID-om postoji
             var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == productDto.CategoryId);
             if (!categoryExists)
@@ -149,7 +146,7 @@ namespace E_commerce_API.Controllers
             return NoContent(); // Vratite 204 No Content na uspješno ažuriranje
         }
 
-        [HttpGet("{bottomPrice}, {upperPrice}")]
+        [HttpGet("{bottomPrice}, {upperPrice}"), Authorize(Roles = "Admin, User")]
         public async Task<ActionResult<IEnumerable<Product>>> getProductsByPrice(decimal bottomPrice, decimal upperPrice)
         {
             if (bottomPrice <= 0 || upperPrice <= 0)
@@ -167,7 +164,7 @@ namespace E_commerce_API.Controllers
             return Ok(products);
         }
 
-        [HttpGet("/category/{categoryId}")]
+        [HttpGet("/category/{categoryId}"), Authorize(Roles = "Admin, User")]
         public async Task<ActionResult<IEnumerable<Product>>> getProductsByCategory(int categoryId)
         {
             var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == categoryId);
@@ -198,7 +195,7 @@ namespace E_commerce_API.Controllers
             return Ok(products);
         }
 
-        [HttpGet("/availability")]
+        [HttpGet("/availability"), Authorize(Roles = "Admin, User")]
         public async Task <ActionResult<IEnumerable<Product>>> getProductsByAvailability()
         {
             var products = await _context.Products.Select(p => new

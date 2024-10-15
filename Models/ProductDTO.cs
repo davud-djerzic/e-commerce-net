@@ -5,9 +5,6 @@ namespace E_commerce_API.Models
 {
     public class ProductDTO
     {
-        [Key]
-        public int Id { get; set; }
-
         [Required]
         [StringLength(30)]
         public string ProductCode { get; set; } = string.Empty;

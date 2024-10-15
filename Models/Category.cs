@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
 namespace E_commerce_API.Models
@@ -6,6 +7,7 @@ namespace E_commerce_API.Models
     public class Category
     {
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)] // Dodaj ovo
         public int Id { get; set; }
 
         [Required]

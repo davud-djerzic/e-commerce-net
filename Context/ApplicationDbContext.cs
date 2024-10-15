@@ -11,5 +11,7 @@ namespace E_commerce_API.Context
         public DbSet<Product> Products { get; set; }
 
         public DbSet<Category> Categorys { get; set; }
+
+        public DbSet<User> Users { get; set; }
     }
 }

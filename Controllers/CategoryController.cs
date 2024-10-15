@@ -1,5 +1,6 @@
 ﻿using E_commerce_API.Context;
 using E_commerce_API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,7 @@ namespace E_commerce_API.Controllers
             _context = context;
         }
 
-        [HttpGet]
+        [HttpGet, Authorize(Roles = "Admin, User")]
         public async Task<ActionResult<IEnumerable<Category>>> getCategories()
         {
             var category = await _context.Categorys.ToListAsync();
@@ -29,7 +30,7 @@ namespace E_commerce_API.Controllers
             return Ok(category);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}"), Authorize(Roles = "Admin")]
         public async Task<ActionResult<Category>> getCategoryById(int id)
         {
             var category = await _context.Categorys.FindAsync(id);
@@ -41,24 +42,21 @@ namespace E_commerce_API.Controllers
             return Ok(category);
         }
 
-        [HttpPost]
-        public async Task<ActionResult<Category>> addCategory(Category category)
+        [HttpPost, Authorize(Roles = "Admin")]
+        public async Task<ActionResult<Category>> addCategory(CategoryDTO categoryDTO)
         {
-            // Provjerite da li kategorija sa datim ID-om postoji
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == category.Id);
-            if (categoryExists)
-            {
-                return Conflict("Category Exist");
-            } else
-            {
+             var category = new Category { 
+                    CategoryName = categoryDTO.CategoryName,
+                    Description = categoryDTO.Description,
+                };
+
                 _context.Categorys.Add(category);
                 await _context.SaveChangesAsync();
-            }
-
+            
             return CreatedAtAction(nameof(addCategory), category);
         }
 
-        [HttpDelete]
+        [HttpDelete, Authorize(Roles = "Admin")]
         public async Task <ActionResult<Category>> deleteCategory(int id)
         {
             var category = await _context.Categorys.FindAsync(id);
@@ -71,22 +69,22 @@ namespace E_commerce_API.Controllers
             return Ok("Category deleted");
         }
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult<Category>> updateCategory(int id, Category category)
+        [HttpPut("{id}"), Authorize, Authorize(Roles = "Admin")]
+        public async Task<ActionResult<Category>> updateCategory(int id, CategoryDTO categoryDTO)
         {
-            if (id != category.Id)
+            /*if (id != categoryDTO.Id)
                 return NotFound("Category not found");
 
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == category.Id);
+            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == categoryDTO.Id);
             if (!categoryExists)
-                return BadRequest("Category not exist");
+                return BadRequest("Category not exist");*/
 
             var categoryObject = await _context.Categorys.FindAsync(id);
             if (categoryObject == null)
-                return NotFound("Category not found");
+                return NotFound("Category not exist");
 
-            categoryObject.CategoryName = category.CategoryName;
-            categoryObject.Description = category.Description;
+            categoryObject.CategoryName = categoryDTO.CategoryName;
+            categoryObject.Description = categoryDTO.Description;
 
             await _context.SaveChangesAsync();
 
