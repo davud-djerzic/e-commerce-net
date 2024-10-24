@@ -1,5 +1,6 @@
-﻿using E_commerce_API.Context;
-using E_commerce_API.Models;
+﻿using Ecommerce.Context;
+using Ecommerce.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace E_commerce_API.Controllers
+namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -24,44 +25,50 @@ namespace E_commerce_API.Controllers
             _configuration = configuration;
         }
 
-        [HttpGet] 
-        public async Task <ActionResult<IEnumerable<User>>> getUsers()
+        [HttpGet, Authorize(Roles = "Admin")] 
+        public async Task <ActionResult<IEnumerable<User>>> GetUsers()
         {
-            var users = await _context.Users.ToListAsync();
+            var users = await _context.Users.ToListAsync(); // get all available users
 
-            return Ok(users);
+            if (!users.Any()) // if there is no one
+                return NotFound("Users not found"); 
+
+            return Ok(users); // return founded users
         }
 
         [HttpPost("register")]
         public async Task <ActionResult<User>> Register(UserRegisterDTO userRegisterDTO)
         {
-            var user = new User(); // Kreiraj novu instancu korisnika
+            var user = new User(); // Create a new instance of user
 
-            var existingUser = await _context.Users
-                .AnyAsync(u => u.Username == user.Username || u.Email == user.Email);
+            var existingUser = await _context.Users // if user wants to use username or email which already exist
+                .AnyAsync(u => u.Username == userRegisterDTO.Username || u.Email == userRegisterDTO.Email); 
 
             if (existingUser)
             {
                 return BadRequest("Username or email already in use.");
             }
 
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(userRegisterDTO.Password);
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(userRegisterDTO.Password); // used to hash a password
 
-            user.FirstName = userRegisterDTO.FirstName;
+            user.FirstName = userRegisterDTO.FirstName; 
             user.LastName = userRegisterDTO.LastName;
             user.Email = userRegisterDTO.Email;
             user.Username = userRegisterDTO.Username;
             user.PasswordHash = passwordHash;
-            userRegisterDTO.Role = char.ToUpper(userRegisterDTO.Role[0]) + userRegisterDTO.Role.Substring(1).ToLower();
-            if (userRegisterDTO.Role != "Admin" && userRegisterDTO.Role != "User")
+            userRegisterDTO.Role = char.ToUpper(userRegisterDTO.Role[0]) + userRegisterDTO.Role.Substring(1).ToLower(); 
+            // to make role with first letter upper and other lethers are lower
+             
+
+            if (userRegisterDTO.Role != "Admin" && userRegisterDTO.Role != "User") // if someone types wrong role, he will be User
             {
                 user.Role = "User";
             } else
             {
-                user.Role = userRegisterDTO.Role;
+                user.Role = userRegisterDTO.Role; // if user.Role == Admin or User
             }
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            _context.Users.Add(user); // add user to Users table
+            await _context.SaveChangesAsync(); // save changes
 
             return Ok(user);
         }
@@ -69,53 +76,52 @@ namespace E_commerce_API.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<User>> Login(UserLoginDTO userLoginDTO)
         {
-            var userRequested = await _context.Users.FirstOrDefaultAsync(u => u.Username == userLoginDTO.Username);
+            var userRequested = await _context.Users.FirstOrDefaultAsync(u => u.Username == userLoginDTO.Username); // try to find user with typed username
             if (userRequested == null)
             {
                 return BadRequest("User not found");
             }
 
-            if (!BCrypt.Net.BCrypt.Verify(userLoginDTO.Password, userRequested.PasswordHash)) {
+            if (!BCrypt.Net.BCrypt.Verify(userLoginDTO.Password, userRequested.PasswordHash)) { //  if user type wrong password
                 return BadRequest("User not found");
             }
 
             //string token = CreateToken(userRequested);
             var claims = new[]
                {
-                    new Claim(ClaimTypes.Role, userRequested.Role),
-                    new Claim(JwtRegisteredClaimNames.Sub, userLoginDTO.Username),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                    new Claim(ClaimTypes.Role, userRequested.Role), // add role claim to jwt token data
+                    //new Claim(JwtRegisteredClaimNames.Sub, userLoginDTO.Username),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                    new Claim(ClaimTypes.NameIdentifier, userRequested.Id.ToString()) // add ID claim to jwt token data
                 };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"])); // made a key
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256); // made a creds for key
             var token = new JwtSecurityToken(
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddDays(1),
+                expires: DateTime.Now.AddDays(1), // token expires after one day of signing
                 signingCredentials: creds
             );
 
             return Ok(new { token = new JwtSecurityTokenHandler().WriteToken(token) });
-
         }
 
-        [HttpDelete]
+        [HttpDelete, Authorize(Roles = "Admin")]
         public async Task<ActionResult<User>> DeleteUser(int id)
         {
-            var dbUsers = await _context.Users.FindAsync(id);
+            var dbUsers = await _context.Users.FindAsync(id); // try to find a user with id
             if (dbUsers == null)
                 return NotFound("Product not found");
 
-            _context.Users.Remove(dbUsers);
-            await _context.SaveChangesAsync();
+            _context.Users.Remove(dbUsers); // delete user
+            await _context.SaveChangesAsync(); // save changes
 
             return Ok("Product deleted");
         }
 
-
-
+        /*
         private string CreateToken(User user)
         {
             List <Claim> claims = new List<Claim>
@@ -143,6 +149,6 @@ namespace E_commerce_API.Controllers
                 );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
-        }
+        }*/
     }
 }

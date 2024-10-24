@@ -1,4 +1,4 @@
-using E_commerce_API.Context;
+using Ecommerce.Context;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;

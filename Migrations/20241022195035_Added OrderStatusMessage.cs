@@ -5,7 +5,7 @@
 namespace Ecommerce.Migrations
 {
     /// <inheritdoc />
-    public partial class Anotherupdateonproductdatabase : Migration
+    public partial class AddedOrderStatusMessage : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

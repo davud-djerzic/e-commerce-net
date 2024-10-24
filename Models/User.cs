@@ -1,12 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
-namespace E_commerce_API.Models
+namespace Ecommerce.Models
 {
     public class User
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)] // Dodaj ovo
+        [Key] // primary key
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)] // auto-increment
         public int Id { get; set; }
 
         [Required]
@@ -33,5 +34,8 @@ namespace E_commerce_API.Models
         [Required]
         [StringLength(10)]
         public string Role { get; set; } = string.Empty;
+
+        [JsonIgnore]
+        public List<Order> Orders { get; set; } = new List<Order>(); // list of orders
     }
 }

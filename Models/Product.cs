@@ -1,12 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
-namespace E_commerce_API.Models
+namespace Ecommerce.Models
 {
     public class Product
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)] // Dodaj ovo
+        [Key] // primary key
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)] // auto-increment
         public int Id { get; set; }
 
         [Required]
@@ -34,13 +35,16 @@ namespace E_commerce_API.Models
         [StringLength(500)]
         public string? Description { get; set; } = string.Empty;
 
-        [ForeignKey("Category")] // Postavite ForeignKey
+        [ForeignKey("Category")] // Foreign key to Category
         [Required]
-        public int CategoryId { get; set; } // Foreign Key za Category
+        public int CategoryId { get; set; } 
 
+        [JsonIgnore]
         [Required]
-        public Category Category { get; set; } 
+        public Category Category { get; set; } // instance of category
 
-        
+        // Kolekcija narudžbi vezanih za korisnika
+        [JsonIgnore]
+        public List<Order> Orders { get; set; } = new List<Order>(); // list of orders
     }
 }

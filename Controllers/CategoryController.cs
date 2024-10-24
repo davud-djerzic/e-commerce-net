@@ -1,11 +1,11 @@
-﻿using E_commerce_API.Context;
-using E_commerce_API.Models;
+﻿using Ecommerce.Context;
+using Ecommerce.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace E_commerce_API.Controllers
+namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -19,7 +19,7 @@ namespace E_commerce_API.Controllers
         }
 
         [HttpGet, Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Category>>> getCategories()
+        public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
         {
             var category = await _context.Categorys.ToListAsync();
             if (!category.Any())
@@ -31,7 +31,7 @@ namespace E_commerce_API.Controllers
         }
 
         [HttpGet("{id}"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> getCategoryById(int id)
+        public async Task<ActionResult<Category>> GetCategoryById(int id)
         {
             var category = await _context.Categorys.FindAsync(id);
             if (category == null)
@@ -43,21 +43,21 @@ namespace E_commerce_API.Controllers
         }
 
         [HttpPost, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> addCategory(CategoryDTO categoryDTO)
+        public async Task<ActionResult<Category>> AddCategory(CategoryDTO categoryDTO)
         {
              var category = new Category { 
                     CategoryName = categoryDTO.CategoryName,
                     Description = categoryDTO.Description,
                 };
 
-                _context.Categorys.Add(category);
-                await _context.SaveChangesAsync();
+            _context.Categorys.Add(category);
+            await _context.SaveChangesAsync();
             
-            return CreatedAtAction(nameof(addCategory), category);
+            return CreatedAtAction(nameof(AddCategory), category);
         }
 
         [HttpDelete, Authorize(Roles = "Admin")]
-        public async Task <ActionResult<Category>> deleteCategory(int id)
+        public async Task <ActionResult<Category>> DeleteCategory(int id)
         {
             var category = await _context.Categorys.FindAsync(id);
             if (category == null)
@@ -70,7 +70,7 @@ namespace E_commerce_API.Controllers
         }
 
         [HttpPut("{id}"), Authorize, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> updateCategory(int id, CategoryDTO categoryDTO)
+        public async Task<ActionResult<Category>> UpdateCategory(int id, CategoryDTO categoryDTO)
         {
             /*if (id != categoryDTO.Id)
                 return NotFound("Category not found");

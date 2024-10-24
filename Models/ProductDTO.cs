@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace E_commerce_API.Models
+namespace Ecommerce.Models
 {
     public class ProductDTO
     {
@@ -31,7 +31,7 @@ namespace E_commerce_API.Models
         public string? Description { get; set; } = string.Empty;
 
         [Required]
-        public int CategoryId { get; set; } // Foreign Key za Category
+        public int CategoryId { get; set; } // Foreign Key for Category
     }
 }
 

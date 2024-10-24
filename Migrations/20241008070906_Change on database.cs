@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace E_commerce_API.Migrations
+namespace Ecommerce.Migrations
 {
     /// <inheritdoc />
     public partial class Changeondatabase : Migration

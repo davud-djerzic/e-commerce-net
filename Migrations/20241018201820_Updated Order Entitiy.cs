@@ -5,16 +5,16 @@
 namespace Ecommerce.Migrations
 {
     /// <inheritdoc />
-    public partial class UpdatedUserdatabase : Migration
+    public partial class UpdatedOrderEntitiy : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
-                name: "Role",
-                table: "Users",
-                type: "character varying(10)",
-                maxLength: 10,
+                name: "OrderStatusMessage",
+                table: "Orders",
+                type: "character varying(15)",
+                maxLength: 15,
                 nullable: false,
                 defaultValue: "");
         }
@@ -23,8 +23,8 @@ namespace Ecommerce.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "Role",
-                table: "Users");
+                name: "OrderStatusMessage",
+                table: "Orders");
         }
     }
 }

@@ -2,12 +2,12 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
-namespace E_commerce_API.Models
+namespace Ecommerce.Models
 {
     public class Category
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)] // Dodaj ovo
+        [Key] // primary key
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)] // auto increment
         public int Id { get; set; }
 
         [Required]
@@ -17,9 +17,8 @@ namespace E_commerce_API.Models
         [StringLength(500)]
         public string? Description { get; set; }
 
-        // povezivanje s proizvodima
         [JsonIgnore]
-        public ICollection<Product> Products { get; set; } = new List<Product>();
+        public ICollection<Product> Products { get; set; } = new List<Product>(); // connection between products and category
     }
 }
 

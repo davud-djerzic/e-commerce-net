@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using E_commerce_API.Models;
+using Ecommerce.Models;
 
-namespace E_commerce_API.Context 
+namespace Ecommerce.Context 
 {
     public class ApplicationDbContext : DbContext
     {
@@ -13,5 +13,7 @@ namespace E_commerce_API.Context
         public DbSet<Category> Categorys { get; set; }
 
         public DbSet<User> Users { get; set; }
+
+        public DbSet<Order> Orders { get; set; }
     }
 }
