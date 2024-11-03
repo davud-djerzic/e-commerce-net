@@ -22,7 +22,7 @@ namespace Ecommerce.Controllers
         [HttpGet, Authorize(Roles = "Admin")]
         public async Task <ActionResult<IEnumerable<Order>>> GetOrders()
         {
-            var orders = await _context.Orders
+            var orders = await _context.Orders.Where(p => !p.IsDeleted)
                 .Include(o => o.Product) // include Product instance
                 .Include(o => o.User)    // include User instance
                 .Select(o => new
@@ -40,10 +40,7 @@ namespace Ecommerce.Controllers
                     o.User.LastName
                 }).ToListAsync(); 
 
-            if (!orders.Any())
-            {
-                return NotFound("Orders not found");
-            }
+            if (!orders.Any()) return NotFound("Orders not found");
 
             return Ok(orders);
         }
@@ -55,13 +52,11 @@ namespace Ecommerce.Controllers
             var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
             int userId = int.Parse(userIdClaim.Value); // parse it to int
 
-            if (userIdClaim == null)
-            {
-                return Unauthorized("User not found in token");
-            }
+            if (userIdClaim == null) return Unauthorized("User not found in token");
 
-            var orders = await _context.Orders.Select(o => new
+            var orders = await _context.Orders.Where(p => !p.IsDeleted).Select(o => new
             {
+                o.Id,
                 o.OrderDate,
                 o.OrderStatus,
                 o.OrderStatusMessage,
@@ -74,10 +69,7 @@ namespace Ecommerce.Controllers
                 o.User.LastName,
             }).Where(o => o.UserId == userId).ToListAsync(); // get orders where userId from jwt token matches UserId from order table
 
-            if (!orders.Any())
-            {
-                return NotFound("Orders not found");
-            }
+            if (!orders.Any()) return NotFound("Orders not found");
             
             return Ok(orders);
         }
@@ -89,13 +81,11 @@ namespace Ecommerce.Controllers
             var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier);
             int userId = int.Parse(userIdClaim.Value);
 
-            if (userIdClaim == null)
-            {
-                return Unauthorized("User not found in token");
-            }
+            if (userIdClaim == null) return Unauthorized("User not found in token");
 
-            var orders = await _context.Orders.Select(o => new
+            var orders = await _context.Orders.Where(p => !p.IsDeleted).Select(o => new
             {
+                o.Id,
                 o.OrderDate,
                 o.OrderStatus,
                 o.OrderStatusMessage,
@@ -108,10 +98,7 @@ namespace Ecommerce.Controllers
                 o.User.LastName,
             }).Where(p => (p.OrderStatus == 1) && (p.UserId == userId)).ToListAsync(); // get your order which was accepted
 
-            if (!orders.Any())
-            {
-                return NotFound("Your accepted orders not found");
-            }
+            if (!orders.Any()) return NotFound("Your accepted orders not found");
 
             return Ok(orders);
         }
@@ -123,13 +110,11 @@ namespace Ecommerce.Controllers
             var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier);
             int userId = int.Parse(userIdClaim.Value);
 
-            if (userIdClaim == null)
-            {
-                return Unauthorized("User not found in token");
-            }
+            if (userIdClaim == null) return Unauthorized("User not found in token");
 
-            var orders = await _context.Orders.Select(o => new
+            var orders = await _context.Orders.Where(p => !p.IsDeleted).Select(o => new
             {
+                o.Id,
                 o.OrderDate,
                 o.OrderStatus,
                 o.OrderStatusMessage,
@@ -142,10 +127,7 @@ namespace Ecommerce.Controllers
                 o.User.LastName,
             }).Where(p => (p.OrderStatus == 0) && (p.UserId == userId)).ToListAsync(); // get your order which is pending
 
-            if (!orders.Any())
-            {
-                return NotFound("Your accepted orders not found");
-            }
+            if (!orders.Any()) return NotFound("Your pending orders not found");
 
             return Ok(orders);
         }
@@ -157,13 +139,11 @@ namespace Ecommerce.Controllers
             var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier);
             int userId = int.Parse(userIdClaim.Value);
 
-            if (userIdClaim == null)
-            {
-                return Unauthorized("User not found in token");
-            }
+            if (userIdClaim == null) return Unauthorized("User not found in token");
 
-            var orders = await _context.Orders.Select(o => new
+            var orders = await _context.Orders.Where(p => !p.IsDeleted).Select(o => new
             {
+                o.Id,
                 o.OrderDate,
                 o.OrderStatus,
                 o.OrderStatusMessage,
@@ -176,10 +156,7 @@ namespace Ecommerce.Controllers
                 o.User.LastName,
             }).Where(p => (p.OrderStatus == -1) && (p.UserId == userId)).ToListAsync(); // get your order which was rejected
 
-            if (!orders.Any())
-            {
-                return NotFound("Your rejected orders not found");
-            }
+            if (!orders.Any()) return NotFound("Your rejected orders not found");
 
             return Ok(orders);
         }
@@ -187,8 +164,9 @@ namespace Ecommerce.Controllers
         [HttpGet("accepted/"), Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Order>>> GetAcceptedOrders()
         {
-            var orders = await _context.Orders.Select(o => new
+            var orders = await _context.Orders.Where(p => !p.IsDeleted).Select(o => new
             {
+                o.Id,
                 o.OrderDate,
                 o.OrderStatus,
                 o.OrderStatusMessage,
@@ -201,10 +179,7 @@ namespace Ecommerce.Controllers
                 o.User.LastName,
             }).Where(p => p.OrderStatus == 1).ToListAsync(); // get all orders which was accepted
 
-            if (!orders.Any())
-            {
-                return NotFound("Accepted orders not found");
-            }
+            if (!orders.Any()) return NotFound("Accepted orders not found");
 
             return Ok(orders);
         }
@@ -212,8 +187,9 @@ namespace Ecommerce.Controllers
         [HttpGet("pending"), Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Order>>> GetPendingOrders()
         {
-            var orders = await _context.Orders.Select(o => new
+            var orders = await _context.Orders.Where(p => !p.IsDeleted).Select(o => new
             {
+                o.Id,
                 o.OrderDate,
                 o.OrderStatus,
                 o.OrderStatusMessage,
@@ -226,10 +202,7 @@ namespace Ecommerce.Controllers
                 o.User.LastName,
             }).Where(p => p.OrderStatus == 0).ToListAsync(); // get all orders which is pending
 
-            if (!orders.Any())
-            {
-                return NotFound("Accepted orders not found");
-            }
+            if (!orders.Any()) return NotFound("Pending orders not found");
 
             return Ok(orders);
         }
@@ -237,8 +210,9 @@ namespace Ecommerce.Controllers
         [HttpGet("rejected"), Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Order>>> GetRejectedOrders()
         {
-            var orders = await _context.Orders.Select(o => new
+            var orders = await _context.Orders.Where(p => !p.IsDeleted).Select(o => new
             {
+                o.Id,
                 o.OrderDate,
                 o.OrderStatus,
                 o.OrderStatusMessage,
@@ -251,10 +225,7 @@ namespace Ecommerce.Controllers
                 o.User.LastName,
             }).Where(p => p.OrderStatus == -1).ToListAsync(); // get all orders which was rejected
 
-            if (!orders.Any())
-            {
-                return NotFound("Rejected orders not found");
-            }
+            if (!orders.Any()) return NotFound("Rejected orders not found");
 
             return Ok(orders);
         }
@@ -268,10 +239,7 @@ namespace Ecommerce.Controllers
 
             var user = await _context.Users.FindAsync(userId); // get user with that id
 
-            if (userIdClaim == null)
-            {
-                return Unauthorized("User not found in token");
-            }
+            if (userIdClaim == null) return Unauthorized("User not found in token");
 
             // get product by product name
             var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductName == orderDTO.ProductName);
@@ -301,7 +269,8 @@ namespace Ecommerce.Controllers
                 Quantity = orderDTO.Quantity,
                 ProductId = product.Id,
                 UserId = userId,
-                Price = price
+                Price = price,
+                IsDeleted = false,
             }; 
 
             _context.Orders.Add(order);
@@ -315,10 +284,7 @@ namespace Ecommerce.Controllers
         public async Task<IActionResult> ManageOrderPatch(int id, ManageOrderDTO manageOrderDTO)
         {
             var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == id); // find created order with his ID
-            if (order == null)
-            {
-                return NotFound("Order not found.");
-            }
+            if (order == null) return NotFound("Order not found.");
 
             order.OrderStatus = manageOrderDTO.OrderStatus; // update status of order
 
@@ -327,13 +293,59 @@ namespace Ecommerce.Controllers
                 return BadRequest("Put the value 1 or -1");
             }
 
-            if (order.OrderStatus == 1)
-                order.OrderStatusMessage = "Accepted";
+            if (order.OrderStatus == 1) order.OrderStatusMessage = "Accepted";
 
-            if (order.OrderStatus == -1)
-                order.OrderStatusMessage = "Rejected";
+            if (order.OrderStatus == -1) order.OrderStatusMessage = "Rejected";
 
             order.OrderDate = DateTime.UtcNow; // update order date 
+
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        [HttpDelete, Authorize(Roles = "Admin")]
+        public async Task<ActionResult> SoftDeleteOrder(int id)
+        {
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null || order.IsDeleted)  return NotFound("Order not found");
+
+            order.IsDeleted = true;
+            _context.Orders.Update(order);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        [HttpGet("softDeleted"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<Order>>> GetSoftDeletedOrders()
+        {
+            List<Order> orders = await _context.Orders.Where(p => p.IsDeleted).ToListAsync();
+
+            if (!orders.Any()) return NotFound("Soft deleted orders not found");
+
+            return Ok(orders);
+        }
+
+        [HttpPut, Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateOrderWithPutMethod(int id, OrderDTO orderDto)
+        {
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null) return NotFound("Order not found");
+
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductName == orderDto.ProductName);
+            if (product == null) return NotFound("Product not found");
+
+            order.OrderDate = DateTime.UtcNow;
+            order.OrderStatus = 0;
+
+            if (orderDto.Quantity > 0 && orderDto.Quantity <= product.StockQuantity)
+                order.Quantity = orderDto.Quantity;
+            else return BadRequest("Please change order quantity");
+
+            order.ProductId = product.Id;
+            order.Price = product.Price * orderDto.Quantity;
+            order.IsDeleted = false;
 
             await _context.SaveChangesAsync();
 

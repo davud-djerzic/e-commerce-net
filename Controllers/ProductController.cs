@@ -7,6 +7,9 @@ using Microsoft.EntityFrameworkCore.Infrastructure.Internal;
 using Microsoft.OpenApi.Any;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Authorization;
+using Ecommerce.Migrations;
+using Ecommerce.Services;
+using Ecommerce.Exceptions;
 
 namespace Ecommerce.Controllers
 {
@@ -14,232 +17,129 @@ namespace Ecommerce.Controllers
     [ApiController]
     public class ProductController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IProductServices _productServices;
 
-        public ProductController(ApplicationDbContext context)
+        public ProductController(IProductServices productServices)
         {
-            _context = context;
+            _productServices = productServices;
         }
 
         [HttpGet, Authorize(Roles = "Admin, User")]
         public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
         {
-            var products = await _context.Products
-                .Select(p => new
-                {
-                    p.Id,
-                    p.ProductCode,
-                    p.ProductName,
-                    p.Price,
-                    p.StockQuantity,
-                    p.Weight,
-                    p.Manufacturer,
-                    p.Description,
-                    p.CategoryId, 
-                    p.Category.CategoryName, // get category name from category table
-                })
-                .ToListAsync();
-
-            if (!products.Any())
-                return NotFound("Products not found");
-
-            return Ok(products);
+            try
+            {
+                var products = await _productServices.GetProductsAsync();
+                return Ok(products);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
 
-        [HttpGet("{id}"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Product>> GetProductById(int id)
+        [HttpGet("getById"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<Product>> GetProductById([FromQuery] int id)
         {
-            var product = await _context.Products.Select(p => new
+            try
             {
-                p.Id,
-                p.ProductCode,
-                p.ProductName,
-                p.Price,
-                p.StockQuantity,
-                p.Weight,
-                p.Manufacturer,
-                p.Description,
-                p.CategoryId, 
-                p.Category.CategoryName,
-            }).FirstOrDefaultAsync(p => p.Id == id); // get product by id
-
-            if (product == null)
-            {
-                return NotFound("Product not found");
+                var product = await _productServices.GetProductByIdAsync(id);
+                return Ok(product);
             }
-
-            return Ok(product);
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
-        [HttpGet("/productName{productName}"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<Product>> GetProductById(string productName)
+        [HttpGet("getByProductName"), Authorize(Roles = "Admin, User")]
+        public async Task<ActionResult<Product>> GetProductByName([FromQuery] string productName)
         {
-            var product = await _context.Products.Select(p => new
+            try
             {
-                p.Id,
-                p.ProductCode,
-                p.ProductName,
-                p.Price,
-                p.StockQuantity,
-                p.Weight,
-                p.Manufacturer,
-                p.Description,
-                p.CategoryId,
-                p.Category.CategoryName,
-            }).FirstOrDefaultAsync(p => p.ProductName == productName); // get product by name
-
-            if (product == null)
-            {
-                return NotFound("Product not found");
+                var product = await _productServices.GetProductByNameAsync(productName);
+                return Ok(product);
             }
-
-            return Ok(product);
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         [HttpPost, Authorize(Roles = "Admin")]
         public async Task<ActionResult<Product>> AddProduct(ProductDTO productDto)
         {
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == productDto.CategoryId); // check if typed category exist
-            if (!categoryExists)
+            try
             {
-                return BadRequest("Category does not exist.");
+                var createdProduct = await _productServices.AddProductAsync(productDto);
+                return CreatedAtAction(nameof(GetProductById), new { id = createdProduct.Id }, createdProduct);
             }
-
-            // Map DTO model to Product model
-            var product = new Product
+            catch (NotFoundException ex)
             {
-                ProductCode = productDto.ProductCode,
-                ProductName = productDto.ProductName,
-                Price = productDto.Price,
-                StockQuantity = productDto.StockQuantity,
-                Weight = productDto.Weight,
-                Manufacturer = productDto.Manufacturer,
-                Description = productDto.Description,
-                CategoryId = productDto.CategoryId 
-            };
-
-            _context.Products.Add(product);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetProductById), new { id = product.Id }, productDto);
+                return BadRequest(ex.Message);
+            }
+            
         }
 
         [HttpDelete, Authorize(Roles = "Admin")]
         public async Task<ActionResult<Product>> DeleteProduct(int id)
         {
-            var dbProduct = await _context.Products.FindAsync(id);
-            if (dbProduct == null)
-                return NotFound("Product not found");
+            var product = await _productServices.DeleteProductAsync(id);
+            if (!product) return NotFound("Product not found");
 
-            _context.Products.Remove(dbProduct);
-            await _context.SaveChangesAsync();
+            return Ok("Product deleted");
 
-            return Ok("Product deleted"); 
         }
 
         [HttpPut("{id}"), Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProduct(int id, ProductDTO productDto)
         {
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == productDto.CategoryId); 
-            if (!categoryExists)
-            {
-                return BadRequest("Category does not exist.");
-            }
+            var product = await _productServices.UpdateProductAsync(id, productDto);
+            if (!product) return NotFound("Product not found");
 
-            var product = await _context.Products.FindAsync(id); // find the product with input id
-            if (product == null)
-            {
-                return NotFound("Product not found"); 
-            }
-
-            // Ažurirajte svojstva proizvoda
-            product.ProductCode = productDto.ProductCode;
-            product.ProductName = productDto.ProductName;
-            product.Price = productDto.Price;
-            product.StockQuantity = productDto.StockQuantity;
-            product.Weight = productDto.Weight;
-            product.Manufacturer = productDto.Manufacturer;
-            product.Description = productDto.Description;
-            product.CategoryId = productDto.CategoryId; 
-            
-            await _context.SaveChangesAsync();
-
-            return NoContent(); // Vratite 204 No Content na uspješno ažuriranje
+            return NoContent();
         }
 
-        [HttpGet("price/{bottomPrice}, {upperPrice}"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByPrice(decimal bottomPrice, decimal upperPrice)
+        [HttpGet("getByPrice"), Authorize(Roles = "Admin, User")]
+        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByPrice([FromQuery] decimal bottomPrice,[FromQuery] decimal upperPrice)
         {
-            if (bottomPrice <= 0 || upperPrice <= 0)
+            try
             {
-                return BadRequest("Price must be positive");
-            }
-
-            var products = await _context.Products.Where(p => p.Price >= bottomPrice && p.Price <= upperPrice).ToListAsync();
-
-            if (!products.Any())
+                var products = await _productServices.GetProductsByPriceAsync(bottomPrice, upperPrice);
+                return Ok(products);
+            } catch (NotFoundException ex)
             {
-                return NotFound("Products not found");
+                return NotFound(ex.Message);
             }
-
-            return Ok(products);
         }
 
-        [HttpGet("category/{categoryId}"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByCategory(int categoryId)
+        [HttpGet("getByCategoryId"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByCategory([FromQuery] int categoryId)
         {
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == categoryId);
-            if (!categoryExists)
+            try
             {
-                return BadRequest("Category does not exist.");
+                var products = await _productServices.GetProductsByCategoryIdAsync(categoryId);
+                return Ok(products);
             }
-
-            var products = await _context.Products.Select(p => new
+            catch (NotFoundException ex)
             {
-                p.Id,
-                p.ProductCode,
-                p.ProductName,
-                p.Price,
-                p.StockQuantity,
-                p.Weight,
-                p.Manufacturer,
-                p.Description,
-                p.CategoryId, 
-                p.Category.CategoryName,
-            }).Where(p => p.CategoryId == categoryId).ToListAsync();
-
-            if (!products.Any())
-            {
-                return NotFound("Products not found");
+                return NotFound(ex.Message);
             }
-
-            return Ok(products);
         }
 
         [HttpGet("availability"), Authorize(Roles = "Admin, User")]
         public async Task <ActionResult<IEnumerable<Product>>> GetProductsByAvailability()
         {
-            var products = await _context.Products.Select(p => new
+            try
             {
-                p.Id,
-                p.ProductCode,
-                p.ProductName,
-                p.Price,
-                p.StockQuantity,
-                p.Weight,
-                p.Manufacturer,
-                p.Description,
-                p.CategoryId, 
-                p.Category.CategoryName,
-            }).Where(p => p.StockQuantity > 0).ToListAsync();
-
-            if (!products.Any())
-            {
-                return NotFound("Product not found");
+                var products = await _productServices.GetProductsByAvailability();
+                return Ok(products);
             }
-
-            return Ok(products);
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
     }
 }

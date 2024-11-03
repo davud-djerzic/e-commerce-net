@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Swashbuckle.AspNetCore.Filters;
+using Ecommerce.Services;
 using System.Text.Json.Serialization;
 
 
@@ -48,6 +49,8 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+builder.Services.AddScoped<ICategoryService, CategoryServices>();
+builder.Services.AddScoped<IProductServices, ProductServices>();
 
 builder.Services.AddEndpointsApiExplorer();
 

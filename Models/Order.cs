@@ -39,6 +39,7 @@ namespace Ecommerce.Models
 
         public User? User { get; set; } // instance of User
 
-        
+        [Required]
+        public bool IsDeleted { get; set; } = false; // soft delete
     }
 }

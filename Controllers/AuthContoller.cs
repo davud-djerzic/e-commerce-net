@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Ecommerce.Controllers
 {
@@ -30,8 +31,7 @@ namespace Ecommerce.Controllers
         {
             var users = await _context.Users.ToListAsync(); // get all available users
 
-            if (!users.Any()) // if there is no one
-                return NotFound("Users not found"); 
+            if (!users.Any()) return NotFound("Users not found"); // if there is no one
 
             return Ok(users); // return founded users
         }
@@ -44,16 +44,16 @@ namespace Ecommerce.Controllers
             var existingUser = await _context.Users // if user wants to use username or email which already exist
                 .AnyAsync(u => u.Username == userRegisterDTO.Username || u.Email == userRegisterDTO.Email); 
 
-            if (existingUser)
-            {
-                return BadRequest("Username or email already in use.");
-            }
+            if (existingUser) return BadRequest("Username or email already in use.");
 
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(userRegisterDTO.Password); // used to hash a password
 
             user.FirstName = userRegisterDTO.FirstName; 
             user.LastName = userRegisterDTO.LastName;
-            user.Email = userRegisterDTO.Email;
+            if (ValidateEmail(userRegisterDTO.Email))
+                user.Email = userRegisterDTO.Email;
+            else return BadRequest("Incorrect format of email");
+
             user.Username = userRegisterDTO.Username;
             user.PasswordHash = passwordHash;
             userRegisterDTO.Role = char.ToUpper(userRegisterDTO.Role[0]) + userRegisterDTO.Role.Substring(1).ToLower(); 
@@ -70,21 +70,17 @@ namespace Ecommerce.Controllers
             _context.Users.Add(user); // add user to Users table
             await _context.SaveChangesAsync(); // save changes
 
-            return Ok(user);
+            return NoContent(); 
         }
 
         [HttpPost("login")]
         public async Task<ActionResult<User>> Login(UserLoginDTO userLoginDTO)
         {
             var userRequested = await _context.Users.FirstOrDefaultAsync(u => u.Username == userLoginDTO.Username); // try to find user with typed username
-            if (userRequested == null)
-            {
-                return BadRequest("User not found");
-            }
+            if (userRequested == null) return BadRequest("User not found");
 
-            if (!BCrypt.Net.BCrypt.Verify(userLoginDTO.Password, userRequested.PasswordHash)) { //  if user type wrong password
-                return BadRequest("User not found");
-            }
+            //  if user type wrong password
+            if (!BCrypt.Net.BCrypt.Verify(userLoginDTO.Password, userRequested.PasswordHash)) return BadRequest("User not found");
 
             //string token = CreateToken(userRequested);
             var claims = new[]
@@ -112,13 +108,21 @@ namespace Ecommerce.Controllers
         public async Task<ActionResult<User>> DeleteUser(int id)
         {
             var dbUsers = await _context.Users.FindAsync(id); // try to find a user with id
-            if (dbUsers == null)
-                return NotFound("Product not found");
+            if (dbUsers == null) return NotFound("User not found");
 
             _context.Users.Remove(dbUsers); // delete user
             await _context.SaveChangesAsync(); // save changes
 
-            return Ok("Product deleted");
+            return Ok("User deleted");
+        }
+
+        public static bool ValidateEmail(string Email_Address)
+        {
+            //Regex regex = new Regex(@"^([\w\.\-]+)@([\w\-]+)((\.(\w){2,3})+)$");
+
+            Regex regex = new Regex(@"^([\w\.\-]+)@([\w\-]+)((\.(\w){2,3})+)$");
+
+            return regex.IsMatch(Email_Address);
         }
 
         /*

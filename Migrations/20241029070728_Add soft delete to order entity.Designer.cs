@@ -3,6 +3,7 @@ using System;
 using Ecommerce.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Ecommerce.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241029070728_Add soft delete to order entity")]
+    partial class Addsoftdeletetoorderentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -41,7 +44,7 @@ namespace Ecommerce.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Categorys", (string)null);
+                    b.ToTable("Categorys");
                 });
 
             modelBuilder.Entity("Ecommerce.Models.Order", b =>
@@ -84,7 +87,7 @@ namespace Ecommerce.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("Ecommerce.Models.Product", b =>
@@ -129,7 +132,7 @@ namespace Ecommerce.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products");
                 });
 
             modelBuilder.Entity("Ecommerce.Models.User", b =>
@@ -172,7 +175,7 @@ namespace Ecommerce.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("Ecommerce.Models.Order", b =>

@@ -1,9 +1,11 @@
 ﻿using Ecommerce.Context;
 using Ecommerce.Models;
+using Ecommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Ecommerce.Exceptions;
 
 namespace Ecommerce.Controllers
 {
@@ -11,60 +13,53 @@ namespace Ecommerce.Controllers
     [ApiController]
     public class CategoryController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly ICategoryService _categoryService;
 
-        public CategoryController(ApplicationDbContext context)
+        public CategoryController(ICategoryService categoryService)
         {
-            _context = context;
+            _categoryService = categoryService;
         }
 
         [HttpGet, Authorize(Roles = "Admin, User")]
         public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
         {
-            var category = await _context.Categorys.ToListAsync();
-            if (!category.Any())
+            try
             {
-                return NotFound("Category not found");
+                var categories = await _categoryService.GetCategoriesAsync();
+                return Ok(categories);
             }
-
-            return Ok(category);
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
-        [HttpGet("{id}"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> GetCategoryById(int id)
+        [HttpGet("getById"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<Category>> GetCategoryById([FromQuery] int id)
         {
-            var category = await _context.Categorys.FindAsync(id);
-            if (category == null)
+            try
             {
-                return NotFound("Category not found");
+                var category = await _categoryService.GetCategoryByIdAsync(id);
+                return Ok(category);
             }
-
-            return Ok(category);
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         [HttpPost, Authorize(Roles = "Admin")]
         public async Task<ActionResult<Category>> AddCategory(CategoryDTO categoryDTO)
         {
-             var category = new Category { 
-                    CategoryName = categoryDTO.CategoryName,
-                    Description = categoryDTO.Description,
-                };
-
-            _context.Categorys.Add(category);
-            await _context.SaveChangesAsync();
-            
-            return CreatedAtAction(nameof(AddCategory), category);
+            var category = await _categoryService.AddCategoryAsync(categoryDTO);
+            return CreatedAtAction(nameof(AddCategory), new { id = category.Id }, category);
         }
 
         [HttpDelete, Authorize(Roles = "Admin")]
         public async Task <ActionResult<Category>> DeleteCategory(int id)
         {
-            var category = await _context.Categorys.FindAsync(id);
-            if (category == null)
-                return NotFound("Category not found");
-
-            _context.Categorys.Remove(category);
-            await _context.SaveChangesAsync();
+            var result = await _categoryService.DeleteCategoryAsync(id);
+            if (!result) return NotFound("Category not found");
 
             return Ok("Category deleted");
         }
@@ -72,21 +67,8 @@ namespace Ecommerce.Controllers
         [HttpPut("{id}"), Authorize, Authorize(Roles = "Admin")]
         public async Task<ActionResult<Category>> UpdateCategory(int id, CategoryDTO categoryDTO)
         {
-            /*if (id != categoryDTO.Id)
-                return NotFound("Category not found");
-
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == categoryDTO.Id);
-            if (!categoryExists)
-                return BadRequest("Category not exist");*/
-
-            var categoryObject = await _context.Categorys.FindAsync(id);
-            if (categoryObject == null)
-                return NotFound("Category not exist");
-
-            categoryObject.CategoryName = categoryDTO.CategoryName;
-            categoryObject.Description = categoryDTO.Description;
-
-            await _context.SaveChangesAsync();
+            var result = await _categoryService.UpdateCategoryAsync(id, categoryDTO);
+            if (!result) return NotFound("Category not found");
 
             return NoContent();
         }
