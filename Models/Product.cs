@@ -37,7 +37,7 @@ namespace Ecommerce.Models
 
         [ForeignKey("Category")] // Foreign key to Category
         [Required]
-        public int CategoryId { get; set; } 
+        public int CategoryId { get; set; }
 
         [JsonIgnore]
         [Required]
@@ -45,6 +45,6 @@ namespace Ecommerce.Models
 
         // Kolekcija narudžbi vezanih za korisnika
         [JsonIgnore]
-        public List<Order> Orders { get; set; } = new List<Order>(); // list of orders
+        public ICollection<OrderProduct> OrderProducts { get; set;}
     }
 }

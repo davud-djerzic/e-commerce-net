@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Ecommerce.Models
+namespace Ecommerce.Models.RequestDto
 {
-    public class UserRegisterDTO
+    public class UserRegisterDto
     {
         [Required]
         [StringLength(50)]

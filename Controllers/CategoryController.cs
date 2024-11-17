@@ -1,11 +1,10 @@
-﻿using Ecommerce.Context;
-using Ecommerce.Models;
+﻿using Ecommerce.Models;
 using Ecommerce.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Ecommerce.Exceptions;
+using Ecommerce.Models.ResponseDto;
+using Ecommerce.Models.RequestDto;
 
 namespace Ecommerce.Controllers
 {
@@ -21,7 +20,7 @@ namespace Ecommerce.Controllers
         }
 
         [HttpGet, Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
+        public async Task<ActionResult<IEnumerable<CategoryResponseDto>>> GetCategories()
         {
             try
             {
@@ -35,7 +34,7 @@ namespace Ecommerce.Controllers
         }
 
         [HttpGet("getById"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> GetCategoryById([FromQuery] int id)
+        public async Task<ActionResult<CategoryResponseDto>> GetCategoryById([FromQuery] int id)
         {
             try
             {
@@ -49,9 +48,9 @@ namespace Ecommerce.Controllers
         }
 
         [HttpPost, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> AddCategory(CategoryDTO categoryDTO)
+        public async Task<ActionResult<Category>> AddCategory(CategoryRequestDto categoryDto)
         {
-            var category = await _categoryService.AddCategoryAsync(categoryDTO);
+            var category = await _categoryService.AddCategoryAsync(categoryDto);
             return CreatedAtAction(nameof(AddCategory), new { id = category.Id }, category);
         }
 
@@ -65,9 +64,9 @@ namespace Ecommerce.Controllers
         }
 
         [HttpPut("{id}"), Authorize, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> UpdateCategory(int id, CategoryDTO categoryDTO)
+        public async Task<ActionResult<Category>> UpdateCategory(int id, CategoryRequestDto categoryDto)
         {
-            var result = await _categoryService.UpdateCategoryAsync(id, categoryDTO);
+            var result = await _categoryService.UpdateCategoryAsync(id, categoryDto);
             if (!result) return NotFound("Category not found");
 
             return NoContent();

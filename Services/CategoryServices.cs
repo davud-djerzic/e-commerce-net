@@ -2,6 +2,8 @@
 using Ecommerce.Models;
 using Microsoft.EntityFrameworkCore;
 using Ecommerce.Exceptions;
+using Ecommerce.Models.ResponseDto;
+using Ecommerce.Models.RequestDto;
 
 namespace Ecommerce.Services
 {
@@ -14,30 +16,42 @@ namespace Ecommerce.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Category>> GetCategoriesAsync()
+        public async Task<IEnumerable<CategoryResponseDto>> GetCategoriesAsync()
         {
-            var categories = await _context.Categorys.ToListAsync();
+            var categories = await _context.Categorys.Select(c => new CategoryResponseDto
+            {
+                Id = c.Id,
+                CategoryName = c.CategoryName,
+                Description = c.Description,
+            }).ToListAsync();
+
             if (!categories.Any())
                 throw new NotFoundException("Category not found");
 
             return categories;
         }
 
-        public async Task<Category> GetCategoryByIdAsync(int id)
+        public async Task<CategoryResponseDto> GetCategoryByIdAsync(int id)
         {
-            var category = await _context.Categorys.FindAsync(id);
+            var category = await _context.Categorys.Select(c => new CategoryResponseDto
+            {
+                Id = c.Id,
+                CategoryName = c.CategoryName,
+                Description = c.Description,
+            }).FirstOrDefaultAsync(c => c.Id == id);
+
             if (category == null)
                 throw new NotFoundException("Category not found");
-              
+
             return category;
         }
 
-        public async Task<Category> AddCategoryAsync(CategoryDTO categoryDTO)
+        public async Task<Category> AddCategoryAsync(CategoryRequestDto categoryDto)
         {
             var category = new Category
             {
-                CategoryName = categoryDTO.CategoryName,
-                Description = categoryDTO.Description,
+                CategoryName = categoryDto.CategoryName,
+                Description = categoryDto.Description,
             };
 
             _context.Categorys.Add(category);
@@ -57,13 +71,13 @@ namespace Ecommerce.Services
             return true;
         }
 
-        public async Task <bool> UpdateCategoryAsync(int id, CategoryDTO categoryDTO)
+        public async Task <bool> UpdateCategoryAsync(int id, CategoryRequestDto categoryDto)
         {
             var category = await _context.Categorys.FindAsync(id);
             if (category == null) return false;
 
-            category.CategoryName = categoryDTO.CategoryName;
-            category.Description = categoryDTO.Description;
+            category.CategoryName = categoryDto.CategoryName;
+            category.Description = categoryDto.Description;
 
             await _context.SaveChangesAsync();
 

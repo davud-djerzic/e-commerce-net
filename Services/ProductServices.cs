@@ -1,5 +1,7 @@
 ﻿using Ecommerce.Context;
 using Ecommerce.Models;
+using Ecommerce.Models.RequestDto;
+using Ecommerce.Models.ResponseDto;
 using Ecommerce.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,34 +16,76 @@ namespace Ecommerce.Services
             _context = context;
         }
 
-        public async Task<IEnumerable<Product>> GetProductsAsync()
+        public async Task<IEnumerable<ProductResponseDto>> GetProductsAsync()
         {
-            var products = await _context.Products.ToListAsync();
+            var products = await _context.Products.Include(c => c.Category)
+                .Select(p => new ProductResponseDto
+                {
+                    Id = p.Id,
+                    ProductCode = p.ProductCode,
+                    ProductName = p.ProductName,
+                    Price = p.Price,
+                    StockQuantity = p.StockQuantity,
+                    Weight = p.Weight,
+                    Manufacturer = p.Manufacturer,
+                    Description = p.Description,
+                    CategoryId = p.CategoryId,
+                    CategoryName = p.Category.CategoryName
+                }).ToListAsync();
+
             if (!products.Any())
                 throw new NotFoundException("Products not found");
 
             return products;
         }
 
-        public async Task<Product> GetProductByIdAsync(int id)
+        public async Task<ProductResponseDto> GetProductByIdAsync(int id)
         {
-            var product = await _context.Products.FindAsync(id);
+            var product = await _context.Products.Include(c => c.Category)
+                .Select(p => new ProductResponseDto
+                {
+                    Id = p.Id,
+                    ProductCode = p.ProductCode,
+                    ProductName = p.ProductName,
+                    Price = p.Price,
+                    StockQuantity = p.StockQuantity,
+                    Weight = p.Weight,
+                    Manufacturer = p.Manufacturer,
+                    Description = p.Description,
+                    CategoryId = p.CategoryId,
+                    CategoryName = p.Category.CategoryName
+                }).FirstOrDefaultAsync(p => p.Id == id);
+
             if (product == null)
                 throw new NotFoundException("Product not found");
 
             return product;
         }
 
-        public async Task<Product> GetProductByNameAsync(string productName)
+        public async Task<ProductResponseDto> GetProductByNameAsync(string productName)
         {
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductName == productName);
+            var product = await _context.Products.Include(c => c.Category)
+                .Select(p => new ProductResponseDto
+                {
+                    Id = p.Id,
+                    ProductCode = p.ProductCode,
+                    ProductName = p.ProductName,
+                    Price = p.Price,
+                    StockQuantity = p.StockQuantity,
+                    Weight = p.Weight,
+                    Manufacturer = p.Manufacturer,
+                    Description = p.Description,
+                    CategoryId = p.CategoryId,
+                    CategoryName = p.Category.CategoryName
+                }).FirstOrDefaultAsync(p => p.ProductName == productName);
+
             if (product == null)
                 throw new NotFoundException("Product not found");
 
             return product;
         }
 
-        public async Task<Product> AddProductAsync(ProductDTO productDto)
+        public async Task<Product> AddProductAsync(ProductRequestDto productDto)
         {
             var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == productDto.CategoryId); // check if typed category exist
             if (!categoryExists) throw new NotFoundException("Category not found");
@@ -77,13 +121,13 @@ namespace Ecommerce.Services
             return true;
         }
     
-        public async Task<bool> UpdateProductAsync(int id, ProductDTO productDto)
+        public async Task<int> UpdateProductAsync(int id, ProductRequestDto productDto)
         {
             var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == productDto.CategoryId);
-            if (!categoryExists) return false;
+            if (!categoryExists) return -1;
 
             var product = await _context.Products.FindAsync(id); // find the product with input id
-            if (product == null) return false;
+            if (product == null) return 0;
 
 
             // Ažurirajte svojstva proizvoda
@@ -98,35 +142,74 @@ namespace Ecommerce.Services
 
             await _context.SaveChangesAsync();
 
-            return true;
+            return 1;
         }
 
-        public async Task<IEnumerable<Product>> GetProductsByPriceAsync(decimal bottomPrice, decimal topPrice)
+        public async Task<IEnumerable<ProductResponseDto>> GetProductsByPriceAsync(decimal bottomPrice, decimal topPrice)
         {
             if (bottomPrice <= 0 || topPrice <= 0) throw new NotFoundException("Price must be positive");
 
-            var products = await _context.Products.Where(p => p.Price >= bottomPrice && p.Price <= topPrice).ToListAsync();
+            var products = await _context.Products.Include(c => c.Category)
+                .Select(p => new ProductResponseDto
+                {
+                    Id = p.Id,
+                    ProductCode = p.ProductCode,
+                    ProductName = p.ProductName,
+                    Price = p.Price,
+                    StockQuantity = p.StockQuantity,
+                    Weight = p.Weight,
+                    Manufacturer = p.Manufacturer,
+                    Description = p.Description,
+                    CategoryId = p.CategoryId,
+                    CategoryName = p.Category.CategoryName
+                }).Where(p => p.Price >= bottomPrice && p.Price <= topPrice).ToListAsync();
 
             if (!products.Any()) throw new NotFoundException("Product not found");
 
             return products;
         }
 
-        public async Task<IEnumerable<Product>> GetProductsByCategoryIdAsync(int categoryId)
+        public async Task<IEnumerable<ProductResponseDto>> GetProductsByCategoryIdAsync(int categoryId)
         {
             var categoryExist = await _context.Products.AnyAsync(p => p.CategoryId == categoryId);
             if (!categoryExist) throw new NotFoundException("Category not found");
 
-            var products = await _context.Products.Where(p => p.CategoryId == categoryId).ToListAsync();
+            var products = await _context.Products.Include(c => c.Category)
+                 .Select(p => new ProductResponseDto
+                 {
+                     Id = p.Id,
+                     ProductCode = p.ProductCode,
+                     ProductName = p.ProductName,
+                     Price = p.Price,
+                     StockQuantity = p.StockQuantity,
+                     Weight = p.Weight,
+                     Manufacturer = p.Manufacturer,
+                     Description = p.Description,
+                     CategoryId = p.CategoryId,
+                     CategoryName = p.Category.CategoryName
+                 }).Where(c => c.CategoryId == categoryId).ToListAsync();
 
             if (!products.Any()) throw new NotFoundException("Products not found");
 
             return products;
         }
 
-        public async Task<IEnumerable<Product>> GetProductsByAvailability()
+        public async Task<IEnumerable<ProductResponseDto>> GetProductsByAvailability()
         {
-            var products = await _context.Products.Where(p => p.StockQuantity > 0).ToListAsync();
+            var products = await _context.Products.Include(c => c.Category)
+                .Select(p => new ProductResponseDto
+                {
+                    Id = p.Id,
+                    ProductCode = p.ProductCode,
+                    ProductName = p.ProductName,
+                    Price = p.Price,
+                    StockQuantity = p.StockQuantity,
+                    Weight = p.Weight,
+                    Manufacturer = p.Manufacturer,
+                    Description = p.Description,
+                    CategoryId = p.CategoryId,
+                    CategoryName = p.Category.CategoryName
+                }).Where(p => p.StockQuantity > 0).ToListAsync();
 
             if (!products.Any()) throw new NotFoundException("Products not found");
 

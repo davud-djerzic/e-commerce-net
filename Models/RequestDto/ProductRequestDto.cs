@@ -1,9 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Ecommerce.Models
+namespace Ecommerce.Models.RequestDto
 {
-    public class ProductDTO
+    public class ProductRequestDto
     {
         [Required]
         [StringLength(30)]
@@ -31,7 +30,6 @@ namespace Ecommerce.Models
         public string? Description { get; set; } = string.Empty;
 
         [Required]
-        public int CategoryId { get; set; } // Foreign Key for Category
+        public int CategoryId { get; set; } // Foreign Key to Category
     }
 }
-

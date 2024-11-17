@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Ecommerce.Models
 {
@@ -19,16 +20,6 @@ namespace Ecommerce.Models
         [Required]
         [StringLength(15)]
         public string OrderStatusMessage {  get; set; } = String.Empty;
-        
-        [ForeignKey("Product")] // Foreign key to product
-        [Required]
-        //[StringLength(20)]
-        public int ProductId { get; set; } = 0;
-
-        public Product? Product { get; set; } // instance of Product
-
-        [Required]
-        public int Quantity { get; set; } = 0;
 
         [Required]
         public decimal Price { get; set; } = 0;
@@ -41,5 +32,8 @@ namespace Ecommerce.Models
 
         [Required]
         public bool IsDeleted { get; set; } = false; // soft delete
+
+        [JsonIgnore]
+        public ICollection<OrderProduct> OrderProducts { get; set; }
     }
 }

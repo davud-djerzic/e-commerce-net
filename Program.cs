@@ -51,6 +51,10 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddScoped<ICategoryService, CategoryServices>();
 builder.Services.AddScoped<IProductServices, ProductServices>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddEndpointsApiExplorer();
 

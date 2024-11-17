@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Ecommerce.Models
+namespace Ecommerce.Models.RequestDto
 {
-    public class ManageOrderDTO
+    public class ManageOrderDto
     {
         [Required]
         public int OrderStatus { get; set; } = 0;

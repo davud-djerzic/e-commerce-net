@@ -1,13 +1,8 @@
-﻿using Ecommerce.Context;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure.Internal;
-using Microsoft.OpenApi.Any;
-using Microsoft.AspNetCore.JsonPatch;
+using Ecommerce.Models.RequestDto;
+using Ecommerce.Models.ResponseDto;
 using Microsoft.AspNetCore.Authorization;
-using Ecommerce.Migrations;
 using Ecommerce.Services;
 using Ecommerce.Exceptions;
 
@@ -25,7 +20,7 @@ namespace Ecommerce.Controllers
         }
 
         [HttpGet, Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetProducts()
         {
             try
             {
@@ -40,7 +35,7 @@ namespace Ecommerce.Controllers
 
 
         [HttpGet("getById"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Product>> GetProductById([FromQuery] int id)
+        public async Task<ActionResult<ProductResponseDto>> GetProductById([FromQuery] int id)
         {
             try
             {
@@ -54,7 +49,7 @@ namespace Ecommerce.Controllers
         }
 
         [HttpGet("getByProductName"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<Product>> GetProductByName([FromQuery] string productName)
+        public async Task<ActionResult<ProductResponseDto>> GetProductByName([FromQuery] string productName)
         {
             try
             {
@@ -68,7 +63,7 @@ namespace Ecommerce.Controllers
         }
 
         [HttpPost, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Product>> AddProduct(ProductDTO productDto)
+        public async Task<ActionResult<Product>> AddProduct(ProductRequestDto productDto)
         {
             try
             {
@@ -93,16 +88,17 @@ namespace Ecommerce.Controllers
         }
 
         [HttpPut("{id}"), Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateProduct(int id, ProductDTO productDto)
+        public async Task<IActionResult> UpdateProduct(int id, ProductRequestDto productDto)
         {
             var product = await _productServices.UpdateProductAsync(id, productDto);
-            if (!product) return NotFound("Product not found");
+            if (product == -1) return NotFound("Category not found");
+            if (product == 0) return NotFound("Product not found");
 
             return NoContent();
         }
 
         [HttpGet("getByPrice"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByPrice([FromQuery] decimal bottomPrice,[FromQuery] decimal upperPrice)
+        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetProductsByPrice([FromQuery] decimal bottomPrice,[FromQuery] decimal upperPrice)
         {
             try
             {
@@ -115,7 +111,7 @@ namespace Ecommerce.Controllers
         }
 
         [HttpGet("getByCategoryId"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByCategory([FromQuery] int categoryId)
+        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetProductsByCategory([FromQuery] int categoryId)
         {
             try
             {
@@ -129,7 +125,7 @@ namespace Ecommerce.Controllers
         }
 
         [HttpGet("availability"), Authorize(Roles = "Admin, User")]
-        public async Task <ActionResult<IEnumerable<Product>>> GetProductsByAvailability()
+        public async Task <ActionResult<IEnumerable<ProductResponseDto>>> GetProductsByAvailability()
         {
             try
             {
