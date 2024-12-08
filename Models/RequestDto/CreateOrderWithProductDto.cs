@@ -2,6 +2,6 @@
 {
     public class CreateOrderWithProductDto
     {
-        public List <AddProductsToOrderDto> Products { get; set; }
+        public List<AddProductsToOrderDto> Products { get; set; }
     }
 }

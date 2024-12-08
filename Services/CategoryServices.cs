@@ -4,36 +4,31 @@ using Microsoft.EntityFrameworkCore;
 using Ecommerce.Exceptions;
 using Ecommerce.Models.ResponseDto;
 using Ecommerce.Models.RequestDto;
+using Ecommerce.Services.ServiceInterfaces;
 
 namespace Ecommerce.Services
 {
-    public class CategoryServices : ICategoryService
+    public class CategoryServices(ApplicationDbContext _context) : ICategoryService
     {
-        private readonly ApplicationDbContext _context;
-
-        public CategoryServices(ApplicationDbContext context)
-        {
-            _context = context;
-        }
-
         public async Task<IEnumerable<CategoryResponseDto>> GetCategoriesAsync()
         {
-            var categories = await _context.Categorys.Select(c => new CategoryResponseDto
+            List<CategoryResponseDto> categories= await _context.Categorys.Select(c => new CategoryResponseDto
             {
                 Id = c.Id,
                 CategoryName = c.CategoryName,
                 Description = c.Description,
             }).ToListAsync();
 
-            if (!categories.Any())
-                throw new NotFoundException("Category not found");
+            if (categories.Count == 0) throw new NotFoundException("Categories not found");
 
             return categories;
         }
 
         public async Task<CategoryResponseDto> GetCategoryByIdAsync(int id)
         {
-            var category = await _context.Categorys.Select(c => new CategoryResponseDto
+            if (id <= 0) throw new BadRequestException("Id must be over a zero");
+
+            CategoryResponseDto? category = await _context.Categorys.Select(c => new CategoryResponseDto
             {
                 Id = c.Id,
                 CategoryName = c.CategoryName,
@@ -41,14 +36,17 @@ namespace Ecommerce.Services
             }).FirstOrDefaultAsync(c => c.Id == id);
 
             if (category == null)
-                throw new NotFoundException("Category not found");
+                throw new NotFoundException($"Category {id} id not found");
 
             return category;
         }
 
         public async Task<Category> AddCategoryAsync(CategoryRequestDto categoryDto)
         {
-            var category = new Category
+            bool categoryNameExist = await _context.Categorys.AnyAsync(c => c.CategoryName == categoryDto.CategoryName);
+            if (categoryNameExist) throw new BadRequestException("Category name already exist");
+
+            Category category = new Category
             {
                 CategoryName = categoryDto.CategoryName,
                 Description = categoryDto.Description,
@@ -60,28 +58,31 @@ namespace Ecommerce.Services
             return category;
         }
 
-        public async Task<bool> DeleteCategoryAsync(int id)
+        public async Task DeleteCategoryAsync(int id)
         {
-            var category = await _context.Categorys.FindAsync(id);
-            if (category == null) return false;
+            if (id <= 0) throw new BadRequestException("Id must be over a zero");
+
+            Category? category = await _context.Categorys.FindAsync(id);
+            if (category == null) throw new NotFoundException($"Category with {id} id not found");
 
             _context.Categorys.Remove(category);
             await _context.SaveChangesAsync();
-
-            return true;
         }
 
-        public async Task <bool> UpdateCategoryAsync(int id, CategoryRequestDto categoryDto)
+        public async Task UpdateCategoryAsync(int id, CategoryRequestDto categoryDto)
         {
-            var category = await _context.Categorys.FindAsync(id);
-            if (category == null) return false;
+            Category? category = await _context.Categorys.FindAsync(id);
+            if (category == null) throw new NotFoundException($"Category {id} not found");
 
-            category.CategoryName = categoryDto.CategoryName;
-            category.Description = categoryDto.Description;
+            List<Category> existedCategories = await _context.Categorys.ToListAsync();
+            foreach (Category cat in existedCategories)
+            {
+                if (cat.CategoryName == categoryDto.CategoryName) throw new BadRequestException($"Category with name {categoryDto.CategoryName} already exists"); 
+            }
+
+            category.GetCategoryFromDto(category, categoryDto);
 
             await _context.SaveChangesAsync();
-
-            return true;
         }
     }
 }

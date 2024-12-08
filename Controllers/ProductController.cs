@@ -3,33 +3,32 @@ using Ecommerce.Models;
 using Ecommerce.Models.RequestDto;
 using Ecommerce.Models.ResponseDto;
 using Microsoft.AspNetCore.Authorization;
-using Ecommerce.Services;
 using Ecommerce.Exceptions;
+using Ecommerce.Services.ServiceInterfaces;
+using Microsoft.AspNetCore.Cors;
 
 namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ProductController : ControllerBase
+    [EnableCors("AllowAll")]
+    public class ProductController(IProductServices _productServices) : ControllerBase
     {
-        private readonly IProductServices _productServices;
-
-        public ProductController(IProductServices productServices)
-        {
-            _productServices = productServices;
-        }
-
         [HttpGet, Authorize(Roles = "Admin, User")]
         public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetProducts()
         {
             try
             {
-                var products = await _productServices.GetProductsAsync();
+                IEnumerable<ProductResponseDto> products = await _productServices.GetProductsAsync();
                 return Ok(products);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -39,12 +38,20 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var product = await _productServices.GetProductByIdAsync(id);
+                ProductResponseDto product = await _productServices.GetProductByIdAsync(id);
                 return Ok(product);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            } 
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -53,12 +60,16 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var product = await _productServices.GetProductByNameAsync(productName);
+                ProductResponseDto product = await _productServices.GetProductByNameAsync(productName);
                 return Ok(product);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -67,34 +78,65 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var createdProduct = await _productServices.AddProductAsync(productDto);
+                Product createdProduct = await _productServices.AddProductAsync(productDto);
                 return CreatedAtAction(nameof(GetProductById), new { id = createdProduct.Id }, createdProduct);
             }
             catch (NotFoundException ex)
             {
-                return BadRequest(ex.Message);
+                return NotFound(new { ex = ex.Message });
             }
-            
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpDelete, Authorize(Roles = "Admin")]
         public async Task<ActionResult<Product>> DeleteProduct(int id)
         {
-            var product = await _productServices.DeleteProductAsync(id);
-            if (!product) return NotFound("Product not found");
-
-            return Ok("Product deleted");
-
+            try
+            {
+                await _productServices.DeleteProductAsync(id);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpPut("{id}"), Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProduct(int id, ProductRequestDto productDto)
         {
-            var product = await _productServices.UpdateProductAsync(id, productDto);
-            if (product == -1) return NotFound("Category not found");
-            if (product == 0) return NotFound("Product not found");
-
-            return NoContent();
+            try
+            {
+                await _productServices.UpdateProductAsync(id, productDto);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("getByPrice"), Authorize(Roles = "Admin, User")]
@@ -102,11 +144,20 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var products = await _productServices.GetProductsByPriceAsync(bottomPrice, upperPrice);
+                IEnumerable<ProductResponseDto> products = await _productServices.GetProductsByPriceAsync(bottomPrice, upperPrice);
                 return Ok(products);
-            } catch (NotFoundException ex)
+            }
+            catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -115,12 +166,20 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var products = await _productServices.GetProductsByCategoryIdAsync(categoryId);
+                IEnumerable<ProductResponseDto> products = await _productServices.GetProductsByCategoryIdAsync(categoryId);
                 return Ok(products);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -129,12 +188,16 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var products = await _productServices.GetProductsByAvailability();
+                IEnumerable<ProductResponseDto> products = await _productServices.GetProductsByAvailability();
                 return Ok(products);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
     }

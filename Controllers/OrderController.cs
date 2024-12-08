@@ -2,46 +2,56 @@
 using Ecommerce.Models;
 using Microsoft.AspNetCore.Authorization;
 using Ecommerce.Exceptions;
-using Ecommerce.Services;
 using Ecommerce.Models.ResponseDto;
 using Ecommerce.Models.RequestDto;
+using Ecommerce.Services.ServiceInterfaces;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Cors;
+using Ecommerce.Services;
 
 namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class OrderController : ControllerBase
+    [EnableCors("AllowAll")]
+    public class OrderController(IOrderService _orderService) : ControllerBase
     {
-        private readonly IOrderService _orderService;
-        public OrderController(IOrderService orderService)
-        {
-            _orderService = orderService;
-        }
-
         [HttpGet, Authorize(Roles = "Admin")]
         public async Task <ActionResult<IEnumerable<OrderResponseDto>>> GetOrders()
         {
             try
             {
-                var orders = await _orderService.GetOrdersAsync();
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetOrdersAsync();
                 return Ok(orders);
             } catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
         [HttpGet("getById"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetOrderById([FromQuery] int id)
+        public async Task<ActionResult<OrderResponseDto>> GetOrderById([FromQuery] int id)
         {
             try
             {
-                var orders = await _orderService.GetOrderByIdAsync(id);
+                OrderResponseDto orders = await _orderService.GetOrderByIdAsync(id);
                 return Ok(orders);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -50,12 +60,21 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var orders = await _orderService.GetYourOrdersAsync();
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetYourOrdersAsync(userId);
                 return Ok(orders);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -64,12 +83,21 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var orders = await _orderService.GetYourAcceptedOrdersAsync();
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetYourAcceptedOrdersAsync(userId);
                 return Ok(orders);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -78,12 +106,21 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var orders = await _orderService.GetYourPendingOrdersAsync();
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetYourPendingOrdersAsync(userId);
                 return Ok(orders);
             }
-            catch (NotFoundException ex)
+            catch(NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -92,12 +129,21 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var orders = await _orderService.GetYourRejectedOrdersAsync();
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetYourCancelledOrdersAsync(userId);
                 return Ok(orders);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -106,12 +152,16 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var orders = await _orderService.GetAcceptedOrdersAsync();
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetAcceptedOrdersAsync();
                 return Ok(orders);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -120,12 +170,16 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var orders = await _orderService.GetPendingOrdersAsync();
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetPendingOrdersAsync();
                 return Ok(orders);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -134,12 +188,16 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var orders = await _orderService.GetRejectedOrdersAsync();
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetCancelledOrdersAsync();
                 return Ok(orders);
             }
             catch (NotFoundException ex)
             {
-                return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
 
@@ -148,62 +206,110 @@ namespace Ecommerce.Controllers
         {
             try
             {
-                var createdOrder = await _orderService.CreateOrderAsync(orderDto);
-                return NoContent();
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                OrderResponseDto createdOrder = await _orderService.CreateOrderAsync(orderDto, userId);
+                return Ok(createdOrder);
             }
             catch (NotFoundException ex)
             {
-                return BadRequest(ex.Message);  
+                return NotFound(new { ex = ex.Message });
             }
-            
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
 
         [HttpPatch("{id}"), Authorize(Roles = "Admin")]
         public async Task<IActionResult> ManageOrderPatch(int id, ManageOrderDto manageOrderDto)
         {
-            var orderStatus = await _orderService.ManageOrderPatchAsync(id, manageOrderDto);
-            if (orderStatus == -1) return NotFound("Order not found");
-            if (orderStatus == 0) return BadRequest("Please type correct format of order status(-1 to 1");
-
-            return NoContent();
+            try
+            {
+                await _orderService.ManageOrderPatchAsync(id, manageOrderDto);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpDelete, Authorize(Roles = "Admin")]
         public async Task<ActionResult> SoftDeleteOrder(int id)
         {
-            var isSoftDeletedOrder = await _orderService.SoftDeleteOrderAsync(id);
-            if (!isSoftDeletedOrder) return NotFound("Order not found");
-
-            return Ok("Order deleted");
-        }
-
-        [HttpGet("softDeleted"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetSoftDeletedOrders()
-        {
             try
             {
-                var softDeletedOrders = await _orderService.GetSoftDeletedOrdersAsync();
-                return Ok(softDeletedOrders);
-            }
-            catch (NotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-        }
-
-        [HttpPut, Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateOrderWithPutMethod(int id, CreateOrderWithProductDto orderDto)
-        {
-            try
-            {
-                await _orderService.UpdateOrderWithPutMethod(id, orderDto);
+                await _orderService.SoftDeleteOrderAsync(id);
                 return NoContent();
             }
             catch (NotFoundException ex)
             {
-                if (ex.Message == "Please change order quantity") return BadRequest(ex.Message);
-                else return NotFound(ex.Message);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+        }
+
+        [HttpGet("softDeleted"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetSoftDeletedOrders()
+        {
+            try
+            {
+                IEnumerable<OrderResponseDto> softDeletedOrders = await _orderService.GetSoftDeletedOrdersAsync();
+                return Ok(softDeletedOrders);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+        }
+
+        [HttpPut, Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateOrder(int id, CreateOrderWithProductDto orderDto)
+        {
+            try
+            {
+                await _orderService.UpdateOrderAsync(id, orderDto);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
         }
     }

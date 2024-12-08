@@ -11,23 +11,19 @@ using SendGrid;
 using SendGrid.Helpers.Mail;
 using System;
 using System.Threading.Tasks;
+using Ecommerce.Services.ServiceInterfaces;
+using Ecommerce.Caches;
+using Microsoft.EntityFrameworkCore.Storage;
+using Ecommerce.Caches.Interfaces;
+//using StackExchange.Redis;
 
 namespace Ecommerce.Services
 {
-    public class OrderService : IOrderService
+    public class OrderService(ApplicationDbContext _context, IHttpContextAccessor _httpContextAccessor, ISendGridService sendGridService, IOrderCache orderCache, IGeneratePdfService generatePdfService) : IOrderService
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-
-        public OrderService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
-        {
-            _context = context;
-            _httpContextAccessor = httpContextAccessor;
-        }
-
         public async Task<IEnumerable<OrderResponseDto>> GetOrdersAsync()
         {
-            var orders = await _context.Orders
+            List<OrderResponseDto> orders = await _context.Orders
               .Where(o => !o.IsDeleted)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
@@ -57,13 +53,15 @@ namespace Ecommerce.Services
               })
               .ToListAsync();
 
-                    if (!orders.Any()) throw new NotFoundException("Orders not found");
+              if (orders.Count == 0) throw new NotFoundException("Orders not found");
 
             return orders;
         }
 
         public async Task<OrderResponseDto> GetOrderByIdAsync(int id)
         {
+            if (id <= 0) throw new BadRequestException("Id must be over a zero");
+
             var order = await _context.Orders
               .Where(o => !o.IsDeleted && o.Id == id)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
@@ -94,19 +92,14 @@ namespace Ecommerce.Services
               }).FirstOrDefaultAsync();
               
 
-            if (order == null) throw new NotFoundException("Order not found");
+            if (order == null) throw new NotFoundException($"Order with {id} id not found");
 
             return order;
         }
 
-        public async Task<IEnumerable<OrderResponseDto>> GetYourOrdersAsync()
+        public async Task<IEnumerable<OrderResponseDto>> GetYourOrdersAsync(int userId)
         {
-            var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
-            int userId = int.Parse(userIdClaim.Value); // parse it to int
-
-            if (userIdClaim == null) throw new NotFoundException("User not found in token");
-
-            var orders = await _context.Orders
+            List<OrderResponseDto> orders = await _context.Orders
               .Where(o => !o.IsDeleted && o.UserId == userId)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
@@ -136,20 +129,15 @@ namespace Ecommerce.Services
               }).ToListAsync();
 
 
-            if (!orders.Any()) throw new NotFoundException("Orders not found");
+            if (orders.Count == 0) throw new NotFoundException("Orders not found");
 
             return orders;
         }
 
-        public async Task<IEnumerable<OrderResponseDto>> GetYourAcceptedOrdersAsync()
+        public async Task<IEnumerable<OrderResponseDto>> GetYourAcceptedOrdersAsync(int userId)
         {
-            var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
-            int userId = int.Parse(userIdClaim.Value); // parse it to int
-
-            if (userIdClaim == null) throw new NotFoundException("User not found in token");
-
-            var orders = await _context.Orders
-              .Where(o => !o.IsDeleted && o.UserId == userId && o.OrderStatus == 1)
+            List<OrderResponseDto> orders = await _context.Orders
+              .Where(o => !o.IsDeleted && o.UserId == userId && o.OrderStatus == OrderStatus.Accepted)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
               .Include(o => o.User)                    // Include the User entity
@@ -178,20 +166,15 @@ namespace Ecommerce.Services
               }).ToListAsync();
 
 
-            if (!orders.Any()) throw new NotFoundException("Your accepted orders not found");
+            if (orders.Count == 0) throw new NotFoundException("Your accepted orders not found");
 
             return orders;
         }
 
-        public async Task<IEnumerable<OrderResponseDto>> GetYourPendingOrdersAsync()
+        public async Task<IEnumerable<OrderResponseDto>> GetYourPendingOrdersAsync(int userId)
         {
-            var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
-            int userId = int.Parse(userIdClaim.Value); // parse it to int
-
-            if (userIdClaim == null) throw new NotFoundException("User not found in token");
-
-            var orders = await _context.Orders
-              .Where(o => !o.IsDeleted && o.UserId == userId && o.OrderStatus == 0)
+            List<OrderResponseDto> orders = await _context.Orders
+              .Where(o => !o.IsDeleted && o.UserId == userId && o.OrderStatus == OrderStatus.Pending)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
               .Include(o => o.User)                    // Include the User entity
@@ -220,20 +203,15 @@ namespace Ecommerce.Services
               }).ToListAsync();
 
 
-            if (!orders.Any()) throw new NotFoundException("Your pending orders not found");
+            if (orders.Count == 0) throw new NotFoundException("Your pending orders not found");
 
             return orders;
         }
 
-        public async Task<IEnumerable<OrderResponseDto>> GetYourRejectedOrdersAsync()
+        public async Task<IEnumerable<OrderResponseDto>> GetYourCancelledOrdersAsync(int userId)
         {
-            var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
-            int userId = int.Parse(userIdClaim.Value); // parse it to int
-
-            if (userIdClaim == null) throw new NotFoundException("User not found in token");
-
-            var orders = await _context.Orders
-              .Where(o => !o.IsDeleted && o.UserId == userId && o.OrderStatus == -1)
+            List<OrderResponseDto> orders = await _context.Orders
+              .Where(o => !o.IsDeleted && o.UserId == userId && o.OrderStatus == OrderStatus.Cancelled)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
               .Include(o => o.User)                    // Include the User entity
@@ -262,15 +240,15 @@ namespace Ecommerce.Services
               }).ToListAsync();
 
 
-            if (!orders.Any()) throw new NotFoundException("Your rejected orders not found");
+            if (orders.Count == 0) throw new NotFoundException("Your cancelled orders not found");
 
             return orders;
         }
 
         public async Task<IEnumerable<OrderResponseDto>> GetAcceptedOrdersAsync()
         {
-            var orders = await _context.Orders
-              .Where(o => !o.IsDeleted && o.OrderStatus == 1)
+            List<OrderResponseDto> orders = await _context.Orders
+              .Where(o => !o.IsDeleted && o.OrderStatus == OrderStatus.Accepted)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
               .Include(o => o.User)                    // Include the User entity
@@ -299,15 +277,15 @@ namespace Ecommerce.Services
               }).ToListAsync();
 
 
-            if (!orders.Any()) throw new NotFoundException("Accepted orders not found");
+            if (orders.Count == 0) throw new NotFoundException("Accepted orders not found");
 
             return orders;
         }
 
         public async Task<IEnumerable<OrderResponseDto>> GetPendingOrdersAsync()
         {
-            var orders = await _context.Orders
-              .Where(o => !o.IsDeleted && o.OrderStatus == 0)
+            List<OrderResponseDto> orders = await _context.Orders
+              .Where(o => !o.IsDeleted && o.OrderStatus == OrderStatus.Pending)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
               .Include(o => o.User)                    // Include the User entity
@@ -336,15 +314,15 @@ namespace Ecommerce.Services
               }).ToListAsync();
 
 
-            if (!orders.Any()) throw new NotFoundException("Pending orders not found");
+            if (orders.Count == 0) throw new NotFoundException("Pending orders not found");
 
             return orders;
         }
 
-        public async Task<IEnumerable<OrderResponseDto>> GetRejectedOrdersAsync()
+        public async Task<IEnumerable<OrderResponseDto>> GetCancelledOrdersAsync()
         {
-            var orders = await _context.Orders
-              .Where(o => !o.IsDeleted && o.OrderStatus == -1)
+            List<OrderResponseDto> orders = await _context.Orders
+              .Where(o => !o.IsDeleted && o.OrderStatus == OrderStatus.Cancelled)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
               .Include(o => o.User)                    // Include the User entity
@@ -373,48 +351,60 @@ namespace Ecommerce.Services
               }).ToListAsync();
 
 
-            if (!orders.Any()) throw new NotFoundException("Rejected orders not found");
+            if (orders.Count == 0) throw new NotFoundException("Cancelled orders not found");
 
             return orders;
         }
         
-        public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderWithProductDto orderDto)
+        public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderWithProductDto orderDto, int userId)
         {
+            var productList = new List<ProductResponseDto>();
+
+            if (orderDto.Products == null || !orderDto.Products.Any())
+            {
+                throw new BadRequestException("No products selected for the order.");
+            }
+
             decimal price = 0;
-
-            var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier); // get userId from jwt token header
-            if (userIdClaim == null) throw new UnauthorizedAccessException("User not found in token.");
-
-            int userId = int.Parse(userIdClaim.Value); // parse it to int
-
             var user = await _context.Users.FindAsync(userId); // get user with that id
             if (user == null) throw new NotFoundException("User not found.");
 
             var order = new Order
             {
                 OrderDate = DateTime.UtcNow,
-                OrderStatus = 0,
-                OrderStatusMessage = "Pending",
+                OrderStatus = OrderStatus.Pending, 
+                OrderStatusMessage = OrderStatus.Pending.ToString(),
                 IsDeleted = false,
                 UserId = userId,
             };
 
             _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
 
-            var productList = new List<ProductResponseDto>();
+            await _context.SaveChangesAsync();
 
             foreach (var productDto in orderDto.Products)
             {
                 var product = await _context.Products
-                .Include(p => p.Category) // Uključuje kategoriju u upit
-                .FirstOrDefaultAsync(p => p.Id == productDto.ProductId);
+                    .Include(p => p.Category) // Include category in the query
+                    .FirstOrDefaultAsync(p => p.Id == productDto.ProductId);
 
-                if (product == null) throw new NotFoundException($"Product {productDto.ProductId} not found");
+                if (product == null) {
+                    await removeOrderNullProduct(order);
+                    throw new NotFoundException($"Product {productDto.ProductId} not found");
+                }
 
-                if (productDto.Quantity > product.StockQuantity) throw new NotFoundException("There are not enough number of product");
 
-                if (productDto.Quantity <= 0) throw new NotFoundException("Quantity must be over zero");
+                if (productDto.Quantity > product.StockQuantity)
+                {
+                    await removeOrderNullProduct(order);
+                    throw new BadRequestException("There are not enough number of product");
+                }
+
+                if (productDto.Quantity <= 0) {
+                    await removeOrderNullProduct(order);
+                    throw new BadRequestException("Quantity must be over zero");
+                }
+                
 
                 product.StockQuantity -= productDto.Quantity;
 
@@ -422,7 +412,7 @@ namespace Ecommerce.Services
 
                 var orderProduct = new OrderProduct
                 {
-                    OrderId = order.Id,
+                    OrderId = order.Id, 
                     ProductId = productDto.ProductId,
                     Quantity = productDto.Quantity,
                 };
@@ -446,13 +436,30 @@ namespace Ecommerce.Services
 
             order.Price = price;
 
+            if (productList.Count == 0)
+            {
+                await removeOrderNullProduct(order);
+                throw new BadRequestException("Zero product selected");
+            }
+
             await _context.SaveChangesAsync();
+
+            await orderCache.AddOrderProduct(order);
+
+            decimal totalPrice = 0;
+            foreach(var product in productList)
+            {
+                ProductDataOrder productDataOrder = await orderCache.GetOrderProduct(order.Id, product.Id);
+                totalPrice += productDataOrder.Price * productDataOrder.Quantity;
+            }
+
+            await orderCache.AddTotalPrice(order, totalPrice);
 
             var responseDto = new OrderResponseDto
             {
-               // ProductId = orderDto.Products.FirstOrDefault()?.ProductId ?? 0,
+                OrderId = order.Id,
                 OrderDate = order.OrderDate,
-                OrderStatus = order.OrderStatus,
+                OrderStatus = order.OrderStatus, 
                 OrderStatusMessage = order.OrderStatusMessage,
                 Price = order.Price,
                 UserId = order.UserId,
@@ -464,26 +471,26 @@ namespace Ecommerce.Services
             return responseDto;
         }
 
-        public async Task<int> ManageOrderPatchAsync(int id, ManageOrderDto manageOrderDto)
+        private async Task removeOrderNullProduct(Order order)
         {
-            var adminIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier);
-            if (adminIdClaim == null) return -1;
+            _context.Orders.Remove(order);
+            await _context.SaveChangesAsync();
+        }
 
-            int adminId = int.Parse(adminIdClaim.Value);
+        public async Task ManageOrderPatchAsync(int id, ManageOrderDto manageOrderDto)
+        {
+            if (id <= 0) throw new BadRequestException("Id must be over a zero");
 
-            var admin = await _context.Users.FindAsync(adminId);
-            if (admin == null) return -1;
+            Order? order = await _context.Orders.Include(o => o.OrderProducts).FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted); // find created order with his ID
+            if (order == null) throw new NotFoundException($"Order {id} not found");
 
-            var order = await _context.Orders.Include(o => o.OrderProducts).FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted); // find created order with his ID
-            if (order == null) return -1;
+            User? user = await _context.Users.FirstOrDefaultAsync(u => u.Id == order.UserId);
+            if (user == null) throw new NotFoundException($"User {order.UserId} not found");
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == order.UserId);
-            if (user == null) return -1;
-
-            if (manageOrderDto.OrderStatus > 1 || manageOrderDto.OrderStatus < -1) return 0; // if order status was typed wrongly
+           // if (manageOrderDto.OrderStatus > 1 || manageOrderDto.OrderStatus < -1) return 0; // if order status was typed wrongly
 
             // if the last state of order is rejected and now the order status changed to better, remove stock quantity from product 
-            if (order.OrderStatus == -1 && (manageOrderDto.OrderStatus == 1 || manageOrderDto.OrderStatus == 0)) 
+            if (order.OrderStatus == OrderStatus.Cancelled && (manageOrderDto.OrderStatus == OrderStatus.Accepted || manageOrderDto.OrderStatus == OrderStatus.Pending)) 
             {
                 foreach (var product in order.OrderProducts)
                     {
@@ -497,11 +504,11 @@ namespace Ecommerce.Services
 
             order.OrderStatus = manageOrderDto.OrderStatus; // update status of order
 
-            if (order.OrderStatus == 1) order.OrderStatusMessage = "Accepted";
+            if (order.OrderStatus == OrderStatus.Accepted) order.OrderStatusMessage = OrderStatus.Accepted.ToString();
 
-            if (order.OrderStatus == -1) 
+            if (order.OrderStatus == OrderStatus.Cancelled) 
             {
-                order.OrderStatusMessage = "Rejected";
+                order.OrderStatusMessage = OrderStatus.Cancelled.ToString();
                 foreach (var product in order.OrderProducts) // get back stock quantity from orderProduct quantity to product quantity
                 {
                     var orderedProduct = await _context.Products.FirstOrDefaultAsync(p => p.Id == product.ProductId);
@@ -511,32 +518,44 @@ namespace Ecommerce.Services
                 }
             }
 
-            if (order.OrderStatus == 0) order.OrderStatusMessage = "Pending";
+            if (order.OrderStatus == OrderStatus.Pending) order.OrderStatusMessage = OrderStatus.Pending.ToString();
 
-            string tekst = "Your order with " + order.Id + " id is " + order.OrderStatusMessage.ToLower();
+            List<OrderProduct> orderProductList = await _context.OrderProducts.Where(op => op.OrderId == id).ToListAsync();
+            if (orderProductList.Count == 0) throw new NotFoundException("Order products not found");
+            
+            generatePdfService.GeneratePdfFile(orderProductList);
+            //var questPdf = new GeneratePdfService(_context);
+            //questPdf.GeneratePdfFile(orderProductList);
 
-            await Execute(admin.FirstName, user.FirstName, "Information about order", admin.Email, user.Email, tekst);
+            string path = Path.Combine(Directory.GetCurrentDirectory() + "/pdfs/", $"Order {orderProductList[0].OrderId}.pdf");
 
+            if (!File.Exists(path))
+            {
+                throw new Exception("PDF generation failed or file not found.");
+            }
+
+            string tekst = "Your order with is " + order.OrderStatusMessage.ToLower();
+
+            await sendGridService.SendEmailAsync("Admin", user.FirstName, "Information about order", user.Email, tekst, path);
+            
             await _context.SaveChangesAsync();
-
-            return 1;
         }
 
-        public async Task<bool> SoftDeleteOrderAsync(int id)
+        public async Task SoftDeleteOrderAsync(int id)
         {
-            var order = await _context.Orders.FindAsync(id);
-            if (order == null || order.IsDeleted) return false;
+            if (id <= 0) throw new BadRequestException("Id must be over a zero");
+
+            Order? order = await _context.Orders.FirstOrDefaultAsync(o => !o.IsDeleted && o.Id == id);
+            if (order == null || order.IsDeleted) throw new NotFoundException($"Order {id} not found");
 
             order.IsDeleted = true;
             _context.Orders.Update(order);
             await _context.SaveChangesAsync();
-
-            return true;
         }
 
         public async Task<IEnumerable<OrderResponseDto>> GetSoftDeletedOrdersAsync()
         {
-            var orders = await _context.Orders
+            List<OrderResponseDto> orders = await _context.Orders
               .Where(o => o.IsDeleted)
               .Include(o => o.OrderProducts)           // Include the link between Order and Product
                   .ThenInclude(op => op.Product)       // Include the Product entity
@@ -568,24 +587,26 @@ namespace Ecommerce.Services
 
             if (!orders.Any()) throw new NotFoundException("Soft deleted orders not found");
 
-            return orders; // TODO: pogledati kasnije
+            return orders; 
         }
 
-        public async Task UpdateOrderWithPutMethod(int id, CreateOrderWithProductDto orderDto)
+        public async Task UpdateOrderAsync(int id, CreateOrderWithProductDto orderDto)
         {
+            if (id <= 0) throw new BadRequestException("Id must be over a zero");
+
             decimal totalPrice = 0;
 
-            var productList = new List<ProductResponseDto>();
+            List<ProductResponseDto> productList = new List<ProductResponseDto>();
 
-             var order = await _context.Orders
-                .Include(o => o.OrderProducts)          // Uključuje sve OrderProduct zapise povezane s narudžbom
-                    .ThenInclude(op => op.Product)      // Uključuje Product za svaki OrderProduct
+             Order? order = await _context.Orders
+                .Include(o => o.OrderProducts)         
+                    .ThenInclude(op => op.Product)      
                 .FirstOrDefaultAsync(o => o.Id == id);
 
             if (order == null) throw new NotFoundException("Order not found"); 
 
             order.OrderStatus = 0;
-            order.OrderStatusMessage = "Pending";
+            order.OrderStatusMessage = OrderStatus.Pending.ToString();
             order.OrderDate = DateTime.UtcNow;
 
             foreach(var op in order.OrderProducts)
@@ -595,8 +616,8 @@ namespace Ecommerce.Services
 
             foreach (var productDto in orderDto.Products)
             {
-                var product = await _context.Products
-                .Include(p => p.Category) // Uključuje kategoriju u upit
+                Product? product = await _context.Products
+                .Include(p => p.Category) 
                 .FirstOrDefaultAsync(p => p.Id == productDto.ProductId);
 
                 if (product == null) throw new NotFoundException($"Product {productDto.ProductId} not found");
@@ -605,10 +626,10 @@ namespace Ecommerce.Services
 
                 //if (productDto.Quantity <= 0) throw new NotFoundException("Quantity must be over zero");
 
-                var existingOrderProduct = order.OrderProducts.FirstOrDefault(op => op.ProductId == productDto.ProductId);
+                OrderProduct? existingOrderProduct = order.OrderProducts.FirstOrDefault(op => op.ProductId == productDto.ProductId);
 
                 if (existingOrderProduct == null) {
-                    var newOrderProduct = new OrderProduct
+                    OrderProduct newOrderProduct = new OrderProduct
                     {
                         OrderId = order.Id,
                         ProductId = productDto.ProductId,
@@ -628,7 +649,7 @@ namespace Ecommerce.Services
                     existingOrderProduct.ProductId = productDto.ProductId; // change ProductId 
 
                     if (productDto.Quantity < 0 || productDto.Quantity > product.StockQuantity)
-                        throw new NotFoundException("Invalid product quantity");
+                        throw new BadRequestException("Invalid product quantity");
 
                     totalPrice += productDto.Quantity * product.Price;
 
@@ -657,39 +678,12 @@ namespace Ecommerce.Services
 
             await _context.SaveChangesAsync();
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == order.UserId);
+            User? user = await _context.Users.FirstOrDefaultAsync(u => u.Id == order.UserId);
 
             if (user == null) throw new NotFoundException("User not found");
 
-            var orderProduct = await _context.OrderProducts.FirstOrDefaultAsync(o => o.OrderId == id);
+            OrderProduct? orderProduct = await _context.OrderProducts.FirstOrDefaultAsync(o => o.OrderId == id);
         }
 
-        static async Task Execute(string senderName, string receiverName, string subjectText, string senderEmail, string receiverEmail, string text)
-        {
-            var apiKey = "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";
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                throw new Exception("SendGrid API key is not configured.");
-            }
-            var client = new SendGridClient(apiKey);
-            var from = new EmailAddress(senderEmail, senderName);
-            var subject = subjectText;
-            var to = new EmailAddress(receiverEmail, receiverEmail);
-            var plainTextContent = text;
-            var htmlContent = text;
-            var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
-            // Onemogućavanje sandbox moda ako je bio uključen
-            msg.MailSettings = new MailSettings
-            {
-                SandboxMode = new SandboxMode { Enable = false }
-            };
-            var response = await client.SendEmailAsync(msg);
-            if (response.StatusCode != System.Net.HttpStatusCode.OK &&
-               response.StatusCode != System.Net.HttpStatusCode.Accepted)
-            {
-                var responseBody = await response.Body.ReadAsStringAsync();
-                throw new Exception($"Failed to send email: {response.StatusCode} - {responseBody}");
-            }
-        }
     }
 }

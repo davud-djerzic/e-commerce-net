@@ -4,6 +4,12 @@ using System.Text.Json.Serialization;
 
 namespace Ecommerce.Models
 {
+    public enum OrderStatus
+    {
+        Cancelled = -1,
+        Pending = 0,
+        Accepted = 1
+    }
     public class Order
     {
         [Key] // primary key
@@ -15,7 +21,7 @@ namespace Ecommerce.Models
         public DateTime OrderDate { get; set; } = DateTime.Now;
 
         [Required]
-        public int OrderStatus { get; set; } = 0;
+        public OrderStatus OrderStatus { get; set; } = OrderStatus.Pending;
 
         [Required]
         [StringLength(15)]
@@ -28,7 +34,7 @@ namespace Ecommerce.Models
         [Required]
         public int UserId { get; set; }
 
-        public User? User { get; set; } // instance of User
+        public User User { get; set; } 
 
         [Required]
         public bool IsDeleted { get; set; } = false; // soft delete

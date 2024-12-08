@@ -35,6 +35,9 @@ namespace Ecommerce.Models
         [StringLength(10)]
         public string Role { get; set; } = string.Empty;
 
+        [Required]
+        public bool IsDeleted { get; set; } = false; // soft delete
+
         [JsonIgnore]
         public List<Order> Orders { get; set; } = new List<Order>(); // list of orders
     }

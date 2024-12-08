@@ -2,7 +2,7 @@
 using Ecommerce.Models.ResponseDto;
 using Ecommerce.Models.RequestDto;
 
-namespace Ecommerce.Services
+namespace Ecommerce.Services.ServiceInterfaces
 {
     public interface IAuthService
     {
@@ -10,6 +10,8 @@ namespace Ecommerce.Services
         Task<User> GetUserByIdAsync(int id);
         Task Register(UserRegisterDto userRegisterDto);
         Task<TokenResponseDto> Login(UserLoginDto userLoginDto);
-        Task<bool> DeleteUserAsync(int id);
+        Task DeleteUserAsync(int id);
+        Task<IEnumerable<User>> GetSoftDeletedUsersAsync();
+        Task RecoveryUserAsync(string username, string password);
     }
 }

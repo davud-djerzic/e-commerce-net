@@ -7,6 +7,10 @@ using System.Text;
 using Swashbuckle.AspNetCore.Filters;
 using Ecommerce.Services;
 using System.Text.Json.Serialization;
+using Ecommerce.Services.ServiceInterfaces;
+using StackExchange.Redis;
+using Ecommerce.Caches.Interfaces;
+using Ecommerce.Caches;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,7 +25,15 @@ builder.Services.AddControllers()
 
 //builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()    // Allow all origins
+               .AllowAnyMethod()    // Allow all HTTP methods (GET, POST, etc.)
+               .AllowAnyHeader();   // Allow all headers
+    });
+});
 
 // Create conection with database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -29,7 +41,13 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
-// Dodajte uslugu autentifikacije
+/*var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                       ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
+    options.UseNpgsql(connectionString);
+});*/
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -53,6 +71,9 @@ builder.Services.AddScoped<ICategoryService, CategoryServices>();
 builder.Services.AddScoped<IProductServices, ProductServices>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ISendGridService, SendGridService>();
+builder.Services.AddScoped<IGeneratePdfService, GeneratePdfService>();
+builder.Services.AddScoped<IOrderCache, OrderCache>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -69,18 +90,30 @@ builder.Services.AddSwaggerGen(c =>
         Type = SecuritySchemeType.Http,
         Scheme = "bearer"
     });
-    c.OperationFilter<SecurityRequirementsOperationFilter>(); // Dodajte ovu liniju
+    c.OperationFilter<SecurityRequirementsOperationFilter>(); 
 });
 
 
 
 var app = builder.Build();
 
+app.UseCors("AllowAll");
 
-// test
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/health")
+    {
+        context.Response.StatusCode = 200; // OK
+        await context.Response.WriteAsync("Healthy");
+        return;
+    }
+    await next(); 
+});
+
+//app.MapGet("/", () => "Hello World!");
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
