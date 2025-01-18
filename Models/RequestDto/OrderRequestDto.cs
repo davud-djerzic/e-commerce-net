@@ -1,9 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Ecommerce.Models
+namespace Ecommerce.Models.RequestDto
 {
-    public class OrderDTO
+    public class OrderRequestDto
     {
         [Required]
         [StringLength(20)]

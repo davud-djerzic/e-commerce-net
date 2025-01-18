@@ -1,94 +1,119 @@
-﻿using Ecommerce.Context;
-using Ecommerce.Models;
+﻿using Ecommerce.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Ecommerce.Exceptions;
+using Ecommerce.Models.ResponseDto;
+using Ecommerce.Models.RequestDto;
+using Ecommerce.Services.ServiceInterfaces;
+using Microsoft.AspNetCore.Cors;
 
 namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class CategoryController : ControllerBase
+    //[EnableCors("AllowAll")]
+    public class CategoryController(ICategoryService _categoryService) : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-
-        public CategoryController(ApplicationDbContext context)
+        [HttpGet, Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<CategoryResponseDto>>> GetCategories()
         {
-            _context = context;
+            try
+            {
+                IEnumerable<CategoryResponseDto> categories = await _categoryService.GetCategoriesAsync();
+                return Ok(categories);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new {ex = ex.Message});
+            }
         }
 
-        [HttpGet, Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
+        [HttpGet("getById"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<CategoryResponseDto>> GetCategoryById(int id)
         {
-            var category = await _context.Categorys.ToListAsync();
-            if (!category.Any())
+            try
             {
-                return NotFound("Category not found");
+                CategoryResponseDto category = await _categoryService.GetCategoryByIdAsync(id);
+                return Ok(category);
             }
-
-            return Ok(category);
-        }
-
-        [HttpGet("{id}"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> GetCategoryById(int id)
-        {
-            var category = await _context.Categorys.FindAsync(id);
-            if (category == null)
+            catch (NotFoundException ex)
             {
-                return NotFound("Category not found");
+                return NotFound(new { ex = ex.Message });
             }
-
-            return Ok(category);
+            catch(BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpPost, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> AddCategory(CategoryDTO categoryDTO)
+        public async Task<ActionResult<Category>> AddCategory(CategoryRequestDto categoryDto)
         {
-             var category = new Category { 
-                    CategoryName = categoryDTO.CategoryName,
-                    Description = categoryDTO.Description,
-                };
-
-            _context.Categorys.Add(category);
-            await _context.SaveChangesAsync();
-            
-            return CreatedAtAction(nameof(AddCategory), category);
+            try
+            {
+                Category category = await _categoryService.AddCategoryAsync(categoryDto);
+                return Ok(category);
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpDelete, Authorize(Roles = "Admin")]
         public async Task <ActionResult<Category>> DeleteCategory(int id)
         {
-            var category = await _context.Categorys.FindAsync(id);
-            if (category == null)
-                return NotFound("Category not found");
-
-            _context.Categorys.Remove(category);
-            await _context.SaveChangesAsync();
-
-            return Ok("Category deleted");
+            try
+            {
+                await _categoryService.DeleteCategoryAsync(id);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpPut("{id}"), Authorize, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Category>> UpdateCategory(int id, CategoryDTO categoryDTO)
+        public async Task<ActionResult<Category>> UpdateCategory(int id, CategoryRequestDto categoryDto)
         {
-            /*if (id != categoryDTO.Id)
-                return NotFound("Category not found");
-
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == categoryDTO.Id);
-            if (!categoryExists)
-                return BadRequest("Category not exist");*/
-
-            var categoryObject = await _context.Categorys.FindAsync(id);
-            if (categoryObject == null)
-                return NotFound("Category not exist");
-
-            categoryObject.CategoryName = categoryDTO.CategoryName;
-            categoryObject.Description = categoryDTO.Description;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            try
+            {
+                await _categoryService.UpdateCategoryAsync(id, categoryDto);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
     }
 }

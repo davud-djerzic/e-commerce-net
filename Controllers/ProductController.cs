@@ -1,245 +1,204 @@
-﻿using Ecommerce.Context;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure.Internal;
-using Microsoft.OpenApi.Any;
-using Microsoft.AspNetCore.JsonPatch;
+using Ecommerce.Models.RequestDto;
+using Ecommerce.Models.ResponseDto;
 using Microsoft.AspNetCore.Authorization;
+using Ecommerce.Exceptions;
+using Ecommerce.Services.ServiceInterfaces;
+using Microsoft.AspNetCore.Cors;
 
 namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ProductController : ControllerBase
+    //[EnableCors("AllowAll")]
+    public class ProductController(IProductServices _productServices) : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-
-        public ProductController(ApplicationDbContext context)
-        {
-            _context = context;
-        }
-
         [HttpGet, Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetProducts()
         {
-            var products = await _context.Products
-                .Select(p => new
-                {
-                    p.Id,
-                    p.ProductCode,
-                    p.ProductName,
-                    p.Price,
-                    p.StockQuantity,
-                    p.Weight,
-                    p.Manufacturer,
-                    p.Description,
-                    p.CategoryId, 
-                    p.Category.CategoryName, // get category name from category table
-                })
-                .ToListAsync();
-
-            if (!products.Any())
-                return NotFound("Products not found");
-
-            return Ok(products);
+            try
+            {
+                IEnumerable<ProductResponseDto> products = await _productServices.GetProductsAsync();
+                return Ok(products);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
 
-        [HttpGet("{id}"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Product>> GetProductById(int id)
+        [HttpGet("getById"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<ProductResponseDto>> GetProductById(int id)
         {
-            var product = await _context.Products.Select(p => new
+            try
             {
-                p.Id,
-                p.ProductCode,
-                p.ProductName,
-                p.Price,
-                p.StockQuantity,
-                p.Weight,
-                p.Manufacturer,
-                p.Description,
-                p.CategoryId, 
-                p.Category.CategoryName,
-            }).FirstOrDefaultAsync(p => p.Id == id); // get product by id
-
-            if (product == null)
-            {
-                return NotFound("Product not found");
+                ProductResponseDto product = await _productServices.GetProductByIdAsync(id);
+                return Ok(product);
             }
-
-            return Ok(product);
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            } 
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
-        [HttpGet("/productName{productName}"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<Product>> GetProductById(string productName)
+        [HttpGet("getByProductName"), Authorize(Roles = "Admin, User")]
+        public async Task<ActionResult<ProductResponseDto>> GetProductByName([FromQuery] string productName)
         {
-            var product = await _context.Products.Select(p => new
+            try
             {
-                p.Id,
-                p.ProductCode,
-                p.ProductName,
-                p.Price,
-                p.StockQuantity,
-                p.Weight,
-                p.Manufacturer,
-                p.Description,
-                p.CategoryId,
-                p.Category.CategoryName,
-            }).FirstOrDefaultAsync(p => p.ProductName == productName); // get product by name
-
-            if (product == null)
-            {
-                return NotFound("Product not found");
+                ProductResponseDto product = await _productServices.GetProductByNameAsync(productName);
+                return Ok(product);
             }
-
-            return Ok(product);
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpPost, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Product>> AddProduct(ProductDTO productDto)
+        public async Task<ActionResult<Product>> AddProduct(ProductRequestDto productDto)
         {
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == productDto.CategoryId); // check if typed category exist
-            if (!categoryExists)
+            try
             {
-                return BadRequest("Category does not exist.");
+                Product createdProduct = await _productServices.AddProductAsync(productDto);
+                return CreatedAtAction(nameof(GetProductById), new { id = createdProduct.Id }, createdProduct);
             }
-
-            // Map DTO model to Product model
-            var product = new Product
+            catch (NotFoundException ex)
             {
-                ProductCode = productDto.ProductCode,
-                ProductName = productDto.ProductName,
-                Price = productDto.Price,
-                StockQuantity = productDto.StockQuantity,
-                Weight = productDto.Weight,
-                Manufacturer = productDto.Manufacturer,
-                Description = productDto.Description,
-                CategoryId = productDto.CategoryId 
-            };
-
-            _context.Products.Add(product);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetProductById), new { id = product.Id }, productDto);
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpDelete, Authorize(Roles = "Admin")]
         public async Task<ActionResult<Product>> DeleteProduct(int id)
         {
-            var dbProduct = await _context.Products.FindAsync(id);
-            if (dbProduct == null)
-                return NotFound("Product not found");
-
-            _context.Products.Remove(dbProduct);
-            await _context.SaveChangesAsync();
-
-            return Ok("Product deleted"); 
+            try
+            {
+                await _productServices.DeleteProductAsync(id);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpPut("{id}"), Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateProduct(int id, ProductDTO productDto)
+        public async Task<IActionResult> UpdateProduct(int id, ProductRequestDto productDto)
         {
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == productDto.CategoryId); 
-            if (!categoryExists)
+            try
             {
-                return BadRequest("Category does not exist.");
+                await _productServices.UpdateProductAsync(id, productDto);
+                return NoContent();
             }
-
-            var product = await _context.Products.FindAsync(id); // find the product with input id
-            if (product == null)
+            catch (NotFoundException ex)
             {
-                return NotFound("Product not found"); 
+                return NotFound(new { ex = ex.Message });
             }
-
-            // Ažurirajte svojstva proizvoda
-            product.ProductCode = productDto.ProductCode;
-            product.ProductName = productDto.ProductName;
-            product.Price = productDto.Price;
-            product.StockQuantity = productDto.StockQuantity;
-            product.Weight = productDto.Weight;
-            product.Manufacturer = productDto.Manufacturer;
-            product.Description = productDto.Description;
-            product.CategoryId = productDto.CategoryId; 
-            
-            await _context.SaveChangesAsync();
-
-            return NoContent(); // Vratite 204 No Content na uspješno ažuriranje
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
-        [HttpGet("price/{bottomPrice}, {upperPrice}"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByPrice(decimal bottomPrice, decimal upperPrice)
+        [HttpGet("getByPrice"), Authorize(Roles = "Admin, User")]
+        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetProductsByPrice([FromQuery] decimal bottomPrice,[FromQuery] decimal upperPrice)
         {
-            if (bottomPrice <= 0 || upperPrice <= 0)
+            try
             {
-                return BadRequest("Price must be positive");
+                IEnumerable<ProductResponseDto> products = await _productServices.GetProductsByPriceAsync(bottomPrice, upperPrice);
+                return Ok(products);
             }
-
-            var products = await _context.Products.Where(p => p.Price >= bottomPrice && p.Price <= upperPrice).ToListAsync();
-
-            if (!products.Any())
+            catch (NotFoundException ex)
             {
-                return NotFound("Products not found");
+                return NotFound(new { ex = ex.Message });
             }
-
-            return Ok(products);
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
-        [HttpGet("category/{categoryId}"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByCategory(int categoryId)
+        [HttpGet("getByCategoryId"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetProductsByCategory([FromQuery] int categoryId)
         {
-            var categoryExists = await _context.Categorys.AnyAsync(c => c.Id == categoryId);
-            if (!categoryExists)
+            try
             {
-                return BadRequest("Category does not exist.");
+                IEnumerable<ProductResponseDto> products = await _productServices.GetProductsByCategoryIdAsync(categoryId);
+                return Ok(products);
             }
-
-            var products = await _context.Products.Select(p => new
+            catch (NotFoundException ex)
             {
-                p.Id,
-                p.ProductCode,
-                p.ProductName,
-                p.Price,
-                p.StockQuantity,
-                p.Weight,
-                p.Manufacturer,
-                p.Description,
-                p.CategoryId, 
-                p.Category.CategoryName,
-            }).Where(p => p.CategoryId == categoryId).ToListAsync();
-
-            if (!products.Any())
-            {
-                return NotFound("Products not found");
+                return NotFound(new { ex = ex.Message });
             }
-
-            return Ok(products);
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("availability"), Authorize(Roles = "Admin, User")]
-        public async Task <ActionResult<IEnumerable<Product>>> GetProductsByAvailability()
+        public async Task <ActionResult<IEnumerable<ProductResponseDto>>> GetProductsByAvailability()
         {
-            var products = await _context.Products.Select(p => new
+            try
             {
-                p.Id,
-                p.ProductCode,
-                p.ProductName,
-                p.Price,
-                p.StockQuantity,
-                p.Weight,
-                p.Manufacturer,
-                p.Description,
-                p.CategoryId, 
-                p.Category.CategoryName,
-            }).Where(p => p.StockQuantity > 0).ToListAsync();
-
-            if (!products.Any())
-            {
-                return NotFound("Product not found");
+                IEnumerable<ProductResponseDto> products = await _productServices.GetProductsByAvailability();
+                return Ok(products);
             }
-
-            return Ok(products);
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
     }
 }

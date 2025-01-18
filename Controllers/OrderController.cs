@@ -1,343 +1,316 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Ecommerce.Context;
+﻿using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
+using Ecommerce.Exceptions;
+using Ecommerce.Models.ResponseDto;
+using Ecommerce.Models.RequestDto;
+using Ecommerce.Services.ServiceInterfaces;
 using System.Security.Claims;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Cors;
+using Ecommerce.Services;
 
 namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class OrderController : ControllerBase
+    //[EnableCors("AllowAll")]
+    public class OrderController(IOrderService _orderService) : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        public OrderController(ApplicationDbContext context)
+        [HttpGet, Authorize(Roles = "Admin")]
+        public async Task <ActionResult<IEnumerable<OrderResponseDto>>> GetOrders()
         {
-            _context = context;
+            try
+            {
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetOrdersAsync();
+                return Ok(orders);
+            } catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
-        [HttpGet, Authorize(Roles = "Admin")]
-        public async Task <ActionResult<IEnumerable<Order>>> GetOrders()
+        [HttpGet("getById"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<OrderResponseDto>> GetOrderById(int id)
         {
-            var orders = await _context.Orders
-                .Include(o => o.Product) // include Product instance
-                .Include(o => o.User)    // include User instance
-                .Select(o => new
-                {
-                    o.Id,
-                    o.OrderDate,
-                    o.OrderStatus,
-                    o.OrderStatusMessage,
-                    o.Quantity,
-                    o.Price,
-                    o.Product.ProductName, // get productName from Product class
-                    o.Product.ProductCode,  // get ProductCode from Product class
-                    o.UserId,
-                    o.User.FirstName, // get FirstName from User classs
-                    o.User.LastName
-                }).ToListAsync(); 
-
-            if (!orders.Any())
+            try
             {
-                return NotFound("Orders not found");
+                OrderResponseDto orders = await _orderService.GetOrderByIdAsync(id);
+                return Ok(orders);
             }
-
-            return Ok(orders);
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("your"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetYourOrders()
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetYourOrders()
         {
-            // Dobijanje korisničkog ID-a iz JWT tokena
-            var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
-            int userId = int.Parse(userIdClaim.Value); // parse it to int
-
-            if (userIdClaim == null)
+            try
             {
-                return Unauthorized("User not found in token");
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetYourOrdersAsync(userId);
+                return Ok(orders);
             }
-
-            var orders = await _context.Orders.Select(o => new
+            catch (NotFoundException ex)
             {
-                o.OrderDate,
-                o.OrderStatus,
-                o.OrderStatusMessage,
-                o.Quantity,
-                o.Price,
-                o.Product.ProductName,
-                o.Product.ProductCode,
-                o.UserId,
-                o.User.FirstName,
-                o.User.LastName,
-            }).Where(o => o.UserId == userId).ToListAsync(); // get orders where userId from jwt token matches UserId from order table
-
-            if (!orders.Any())
-            {
-                return NotFound("Orders not found");
+                return NotFound(new { ex = ex.Message });
             }
-            
-            return Ok(orders);
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("your/accepted"), Authorize(Roles = "Admin, User")]
-        public async Task <ActionResult<IEnumerable<Order>>> GetYourAcceptedOrders()
+        public async Task <ActionResult<IEnumerable<OrderResponseDto>>> GetYourAcceptedOrders()
         {
-            // Dobijanje korisničkog ID-a iz JWT tokena
-            var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier);
-            int userId = int.Parse(userIdClaim.Value);
-
-            if (userIdClaim == null)
+            try
             {
-                return Unauthorized("User not found in token");
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetYourAcceptedOrdersAsync(userId);
+                return Ok(orders);
             }
-
-            var orders = await _context.Orders.Select(o => new
+            catch (NotFoundException ex)
             {
-                o.OrderDate,
-                o.OrderStatus,
-                o.OrderStatusMessage,
-                o.Quantity,
-                o.Price,
-                o.Product.ProductName,
-                o.Product.ProductCode,
-                o.UserId,
-                o.User.FirstName,
-                o.User.LastName,
-            }).Where(p => (p.OrderStatus == 1) && (p.UserId == userId)).ToListAsync(); // get your order which was accepted
-
-            if (!orders.Any())
-            {
-                return NotFound("Your accepted orders not found");
+                return NotFound(new { ex = ex.Message });
             }
-
-            return Ok(orders);
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("your/pending"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetYourPendingOrders()
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetYourPendingOrders()
         {
-            // Dobijanje korisničkog ID-a iz JWT tokena
-            var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier);
-            int userId = int.Parse(userIdClaim.Value);
-
-            if (userIdClaim == null)
+            try
             {
-                return Unauthorized("User not found in token");
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetYourPendingOrdersAsync(userId);
+                return Ok(orders);
             }
-
-            var orders = await _context.Orders.Select(o => new
+            catch(NotFoundException ex)
             {
-                o.OrderDate,
-                o.OrderStatus,
-                o.OrderStatusMessage,
-                o.Quantity,
-                o.Price,
-                o.Product.ProductName,
-                o.Product.ProductCode,
-                o.UserId,
-                o.User.FirstName,
-                o.User.LastName,
-            }).Where(p => (p.OrderStatus == 0) && (p.UserId == userId)).ToListAsync(); // get your order which is pending
-
-            if (!orders.Any())
-            {
-                return NotFound("Your accepted orders not found");
+                return NotFound(new { ex = ex.Message });
             }
-
-            return Ok(orders);
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("your/rejected"), Authorize(Roles = "Admin, User")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetYourRejectedOrders()
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetYourRejectedOrders()
         {
-            // Dobijanje korisničkog ID-a iz JWT tokena
-            var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier);
-            int userId = int.Parse(userIdClaim.Value);
-
-            if (userIdClaim == null)
+            try
             {
-                return Unauthorized("User not found in token");
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetYourCancelledOrdersAsync(userId);
+                return Ok(orders);
             }
-
-            var orders = await _context.Orders.Select(o => new
+            catch (NotFoundException ex)
             {
-                o.OrderDate,
-                o.OrderStatus,
-                o.OrderStatusMessage,
-                o.Quantity,
-                o.Price,
-                o.Product.ProductName,
-                o.Product.ProductCode,
-                o.UserId,
-                o.User.FirstName,
-                o.User.LastName,
-            }).Where(p => (p.OrderStatus == -1) && (p.UserId == userId)).ToListAsync(); // get your order which was rejected
-
-            if (!orders.Any())
-            {
-                return NotFound("Your rejected orders not found");
+                return NotFound(new { ex = ex.Message });
             }
-
-            return Ok(orders);
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("accepted/"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetAcceptedOrders()
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetAcceptedOrders()
         {
-            var orders = await _context.Orders.Select(o => new
+            try
             {
-                o.OrderDate,
-                o.OrderStatus,
-                o.OrderStatusMessage,
-                o.Quantity,
-                o.Price,
-                o.Product.ProductName,
-                o.Product.ProductCode,
-                o.UserId,
-                o.User.FirstName,
-                o.User.LastName,
-            }).Where(p => p.OrderStatus == 1).ToListAsync(); // get all orders which was accepted
-
-            if (!orders.Any())
-            {
-                return NotFound("Accepted orders not found");
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetAcceptedOrdersAsync();
+                return Ok(orders);
             }
-
-            return Ok(orders);
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("pending"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetPendingOrders()
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetPendingOrders()
         {
-            var orders = await _context.Orders.Select(o => new
+            try
             {
-                o.OrderDate,
-                o.OrderStatus,
-                o.OrderStatusMessage,
-                o.Quantity,
-                o.Price,
-                o.Product.ProductName,
-                o.Product.ProductCode,
-                o.UserId,
-                o.User.FirstName,
-                o.User.LastName,
-            }).Where(p => p.OrderStatus == 0).ToListAsync(); // get all orders which is pending
-
-            if (!orders.Any())
-            {
-                return NotFound("Accepted orders not found");
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetPendingOrdersAsync();
+                return Ok(orders);
             }
-
-            return Ok(orders);
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpGet("rejected"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetRejectedOrders()
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetRejectedOrders()
         {
-            var orders = await _context.Orders.Select(o => new
+            try
             {
-                o.OrderDate,
-                o.OrderStatus,
-                o.OrderStatusMessage,
-                o.Quantity,
-                o.Price,
-                o.Product.ProductName,
-                o.Product.ProductCode,
-                o.UserId,
-                o.User.FirstName,
-                o.User.LastName,
-            }).Where(p => p.OrderStatus == -1).ToListAsync(); // get all orders which was rejected
-
-            if (!orders.Any())
-            {
-                return NotFound("Rejected orders not found");
+                IEnumerable<OrderResponseDto> orders = await _orderService.GetCancelledOrdersAsync();
+                return Ok(orders);
             }
-
-            return Ok(orders);
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpPost, Authorize(Roles = "Admin, User")]
-        public async Task <ActionResult<Order>> CreateOrder(OrderDTO orderDTO) 
+        public async Task <ActionResult<OrderResponseDto>> CreateOrder(CreateOrderWithProductDto orderDto) 
         {
-            var userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get userId from jwt token header
-
-            int userId = int.Parse(userIdClaim.Value); // parse it to int
-
-            var user = await _context.Users.FindAsync(userId); // get user with that id
-
-            if (userIdClaim == null)
+            try
             {
-                return Unauthorized("User not found in token");
+                Claim? userIdClaim = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier); // get user ID from jwt token header
+                if (userIdClaim == null) throw new NotFoundException("User ID not found in token");
+                int userId = int.Parse(userIdClaim!.Value); // parse it to int
+                if (userIdClaim == null) throw new NotFoundException("User not found in token");
+
+                OrderResponseDto createdOrder = await _orderService.CreateOrderAsync(orderDto, userId);
+                return Ok(createdOrder);
             }
-
-            // get product by product name
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductName == orderDTO.ProductName);
-            if (product == null)
+            catch (NotFoundException ex)
             {
-                return BadRequest("Product not found");
+                return NotFound(new { ex = ex.Message });
             }
-            if (orderDTO.Quantity > product.StockQuantity) // if quantity of order is over a procuct quantity
+            catch (BadRequestException ex)
             {
-                return BadRequest("There are not enough number of product");
+                return BadRequest(new { ex = ex.Message });
             }
-            if (orderDTO.Quantity <= 0) // if order quantity is below zero
+            catch (Exception ex)
             {
-                return BadRequest("Quantity must be over a zero");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
             }
-
-            product.StockQuantity -= orderDTO.Quantity; 
-            
-            decimal price = product.Price * orderDTO.Quantity; // calculate the price
-
-            // Mapirajte DTO u model proizvoda
-            var order = new Order
-            {
-                OrderDate = DateTime.UtcNow, // get the time of making order
-                OrderStatus = 0, // order pending
-                OrderStatusMessage = "Pending", // order status pending
-                Quantity = orderDTO.Quantity,
-                ProductId = product.Id,
-                UserId = userId,
-                Price = price
-            }; 
-
-            _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
-            
-            return Ok(order);
         }
 
 
         [HttpPatch("{id}"), Authorize(Roles = "Admin")]
-        public async Task<IActionResult> ManageOrderPatch(int id, ManageOrderDTO manageOrderDTO)
+        public async Task<IActionResult> ManageOrderPatch(int id, ManageOrderDto manageOrderDto)
         {
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == id); // find created order with his ID
-            if (order == null)
+            try
             {
-                return NotFound("Order not found.");
+                await _orderService.ManageOrderPatchAsync(id, manageOrderDto);
+                return NoContent();
             }
-
-            order.OrderStatus = manageOrderDTO.OrderStatus; // update status of order
-
-            if (order.OrderStatus > 1 || order.OrderStatus < -1) // if order status was typed wrongly
+            catch (NotFoundException ex)
             {
-                return BadRequest("Put the value 1 or -1");
+                return NotFound(new { ex = ex.Message });
             }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+        }
 
-            if (order.OrderStatus == 1)
-                order.OrderStatusMessage = "Accepted";
+        [HttpDelete, Authorize(Roles = "Admin")]
+        public async Task<ActionResult> SoftDeleteOrder(int id)
+        {
+            try
+            {
+                await _orderService.SoftDeleteOrderAsync(id);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+        }
 
-            if (order.OrderStatus == -1)
-                order.OrderStatusMessage = "Rejected";
+        [HttpGet("softDeleted"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetSoftDeletedOrders()
+        {
+            try
+            {
+                IEnumerable<OrderResponseDto> softDeletedOrders = await _orderService.GetSoftDeletedOrdersAsync();
+                return Ok(softDeletedOrders);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+        }
 
-            order.OrderDate = DateTime.UtcNow; // update order date 
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+        [HttpPut, Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateOrder(int id, CreateOrderWithProductDto orderDto)
+        {
+            try
+            {
+                await _orderService.UpdateOrderAsync(id, orderDto);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
     }
 }

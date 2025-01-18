@@ -1,137 +1,174 @@
-﻿using Ecommerce.Context;
-using Ecommerce.Models;
+﻿using Ecommerce.Models;
+using Ecommerce.Models.RequestDto;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using Ecommerce.Exceptions;
+using Ecommerce.Services.ServiceInterfaces;
+using Microsoft.AspNetCore.Cors;
+using Ecommerce.Models.ResponseDto;
 
 namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AuthContoller : ControllerBase
+    //[EnableCors("AllowAll")]
+    public class AuthContoller(IAuthService _authService) : ControllerBase
     {
-        //public static User user = new User();
-
-        private readonly ApplicationDbContext _context;
-        private readonly IConfiguration _configuration;
-        public AuthContoller(ApplicationDbContext context, IConfiguration configuration)
-        {
-            _context = context;
-            _configuration = configuration;
-        }
-
         [HttpGet, Authorize(Roles = "Admin")] 
         public async Task <ActionResult<IEnumerable<User>>> GetUsers()
         {
-            var users = await _context.Users.ToListAsync(); // get all available users
+            try
+            {
+                IEnumerable<User> users = await _authService.GetUsersAsync();
+                return Ok(users);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+        }
 
-            if (!users.Any()) // if there is no one
-                return NotFound("Users not found"); 
+        [HttpGet("getById"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<User>> GetUserById(int id)
+        {
+            try
+            {
+                User user = await _authService.GetUserByIdAsync(id);
+                return Ok(user);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+        }
 
-            return Ok(users); // return founded users
+        [HttpGet("getSoftDeleted"), Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<User>>> GetSoftDeletedUsers()
+        {
+            try
+            {
+                IEnumerable<User> users = await _authService.GetSoftDeletedUsersAsync();
+                return Ok(users);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+        }
+
+        [HttpPut("Recovery/{username}, {password}")]
+        public async Task<ActionResult<User>> RecoveryUser(string username, string password)
+        {
+            try
+            {
+                await _authService.RecoveryUserAsync(username, password);
+                return Ok("Your account is recovered");
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
+            }
+            catch (UserAlreadyExists ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
+
         }
 
         [HttpPost("register")]
-        public async Task <ActionResult<User>> Register(UserRegisterDTO userRegisterDTO)
+        public async Task<IActionResult> Register(UserRegisterDto userRegisterDto)
         {
-            var user = new User(); // Create a new instance of user
-
-            var existingUser = await _context.Users // if user wants to use username or email which already exist
-                .AnyAsync(u => u.Username == userRegisterDTO.Username || u.Email == userRegisterDTO.Email); 
-
-            if (existingUser)
+            try
             {
-                return BadRequest("Username or email already in use.");
+                await _authService.Register(userRegisterDto);
+                return Created();
             }
-
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(userRegisterDTO.Password); // used to hash a password
-
-            user.FirstName = userRegisterDTO.FirstName; 
-            user.LastName = userRegisterDTO.LastName;
-            user.Email = userRegisterDTO.Email;
-            user.Username = userRegisterDTO.Username;
-            user.PasswordHash = passwordHash;
-            userRegisterDTO.Role = char.ToUpper(userRegisterDTO.Role[0]) + userRegisterDTO.Role.Substring(1).ToLower(); 
-            // to make role with first letter upper and other lethers are lower
-             
-
-            if (userRegisterDTO.Role != "Admin" && userRegisterDTO.Role != "User") // if someone types wrong role, he will be User
+            catch (UserAlreadyExists ex)
             {
-                user.Role = "User";
-            } else
-            {
-                user.Role = userRegisterDTO.Role; // if user.Role == Admin or User
+                return BadRequest(new {ex = ex.Message});
             }
-            _context.Users.Add(user); // add user to Users table
-            await _context.SaveChangesAsync(); // save changes
-
-            return Ok(user);
+            catch(BadRequestException ex)
+            {
+                return BadRequest(new {ex = ex.Message});
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<User>> Login(UserLoginDTO userLoginDTO)
+        public async Task<IActionResult> Login(UserLoginDto userLoginDto)
         {
-            var userRequested = await _context.Users.FirstOrDefaultAsync(u => u.Username == userLoginDTO.Username); // try to find user with typed username
-            if (userRequested == null)
+            try
             {
-                return BadRequest("User not found");
+                TokenResponseDto tokenResponse = await _authService.Login(userLoginDto);
+                return Ok(tokenResponse);
             }
-
-            if (!BCrypt.Net.BCrypt.Verify(userLoginDTO.Password, userRequested.PasswordHash)) { //  if user type wrong password
-                return BadRequest("User not found");
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { ex = ex.Message });
             }
-
-            //string token = CreateToken(userRequested);
-            var claims = new[]
-               {
-                    new Claim(ClaimTypes.Role, userRequested.Role), // add role claim to jwt token data
-                    //new Claim(JwtRegisteredClaimNames.Sub, userLoginDTO.Username),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                    new Claim(ClaimTypes.NameIdentifier, userRequested.Id.ToString()) // add ID claim to jwt token data
-                };
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"])); // made a key
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256); // made a creds for key
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.Now.AddDays(1), // token expires after one day of signing
-                signingCredentials: creds
-            );
-
-            return Ok(new { token = new JwtSecurityTokenHandler().WriteToken(token) });
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
 
         [HttpDelete, Authorize(Roles = "Admin")]
-        public async Task<ActionResult<User>> DeleteUser(int id)
+        public async Task<ActionResult<User>> DeleteUserAsync(int id)
         {
-            var dbUsers = await _context.Users.FindAsync(id); // try to find a user with id
-            if (dbUsers == null)
-                return NotFound("Product not found");
-
-            _context.Users.Remove(dbUsers); // delete user
-            await _context.SaveChangesAsync(); // save changes
-
-            return Ok("Product deleted");
+            try
+            {
+                await _authService.DeleteUserAsync(id);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return BadRequest(new { ex = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { ex = ex.Message });
+            }
         }
+
 
         /*
         private string CreateToken(User user)
         {
             List <Claim> claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()), // Id korisnika
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()), 
                 new Claim("FirstName", user.FirstName), // Ime
                 new Claim("LastName", user.LastName), // Prezime
                 new Claim(JwtRegisteredClaimNames.Email, user.Email), // Email
                 new Claim("Username", user.Username), // Korisničko ime
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()), // Jedinstveni identifikator za JWT
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()), 
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim(JwtRegisteredClaimNames.Iss, "yourIssuer"),
                 new Claim(JwtRegisteredClaimNames.Aud, "yourAudience")
