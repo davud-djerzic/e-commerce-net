@@ -20,10 +20,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 Env.Load();
 
-// Dodaj konfiguraciju iz appsettings.json
 builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 
-// Dodaj vrednosti iz environment varijabli (koje ukljuèuju vrednosti iz .env fajla)
 builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddControllers()
@@ -36,9 +34,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
     {
-        builder.AllowAnyOrigin()    // Allow all origins
-               .AllowAnyMethod()    // Allow all HTTP methods (GET, POST, etc.)
-               .AllowAnyHeader();   // Allow all headers
+        builder.AllowAnyOrigin()    
+               .AllowAnyMethod()   
+               .AllowAnyHeader();   
     });
 });
 
