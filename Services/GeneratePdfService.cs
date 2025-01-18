@@ -16,7 +16,7 @@ namespace Ecommerce.Services
 {
     public class GeneratePdfService(ApplicationDbContext _context, IOrderCache orderCache) : IGeneratePdfService
     {
-        public void GeneratePdfFile(List<OrderProduct> orderProduct)
+        public async Task GeneratePdfFile(List<OrderProduct> orderProduct)
         {
             try
             {
@@ -27,6 +27,15 @@ namespace Ecommerce.Services
                 QuestPDF.Settings.License = LicenseType.Community;
 
                 //decimal totalPrice = 0;
+
+                // Preuzmi sve podatke o proizvodima iz Redis-a unapred
+                List<ProductDataOrder> productDataList = new List<ProductDataOrder>();
+                foreach (var item in orderProduct)
+                {
+                    ProductDataOrder productData = await orderCache.GetOrderProduct(item.OrderId, item.ProductId);
+                    if (productData == null) throw new Exception($"Product data for ProductId {item.ProductId} not found in Redis.");
+                    productDataList.Add(productData);
+                }
 
                 Document.Create(container =>
                 {
@@ -89,7 +98,7 @@ namespace Ecommerce.Services
                                     });
                                 });
 
-                                column.Item().Table(table =>
+                                column.Item().Table(async table =>
                                 {
 
                                     table.ColumnsDefinition(columns =>
@@ -121,14 +130,15 @@ namespace Ecommerce.Services
                                     {
                                         Product product = _context.Products.Find(orderProduct[i].ProductId);
                                         if (product == null) throw new NotFoundException("Product not found");
-
-                                        price = product.Price * orderProduct[i].Quantity;
+                                      
+                                        price = productDataList[i].Price * orderProduct[i].Quantity;
+                                        //price = product.Price * orderProduct[i].Quantity;
                                         //totalPrice += price;
 
                                         table.Cell().Element(CellStyle).Text($"{i + 1}");
-                                        table.Cell().Element(CellStyle).Text(product.ProductName);
-                                        table.Cell().Element(CellStyle).AlignRight().Text(product.Price.ToString("C"));
-                                        table.Cell().Element(CellStyle).AlignRight().Text(orderProduct[i].Quantity.ToString());
+                                        table.Cell().Element(CellStyle).Text(productDataList[i].Name);
+                                        table.Cell().Element(CellStyle).AlignRight().Text(productDataList[i].Price.ToString("C"));
+                                        table.Cell().Element(CellStyle).AlignRight().Text(productDataList[i].Quantity.ToString());
                                         table.Cell().Element(CellStyle).AlignRight().Text(price.ToString("C"));
 
                                         static IContainer CellStyle(IContainer container)

@@ -398,6 +398,8 @@ FodyWeavers.xsd
 *.sln.iml
 
 
-#pdf
+#pdf 
 
 pdfs/*
+
+.env

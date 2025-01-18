@@ -74,7 +74,8 @@ namespace Ecommerce.Services
             Category? category = await _context.Categorys.FindAsync(id);
             if (category == null) throw new NotFoundException($"Category {id} not found");
 
-            List<Category> existedCategories = await _context.Categorys.ToListAsync();
+            string categoryName = category.CategoryName;
+            List<Category> existedCategories = await _context.Categorys.Where(c => c.CategoryName != categoryName).ToListAsync();
             foreach (Category cat in existedCategories)
             {
                 if (cat.CategoryName == categoryDto.CategoryName) throw new BadRequestException($"Category with name {categoryDto.CategoryName} already exists"); 

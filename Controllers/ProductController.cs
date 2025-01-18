@@ -11,7 +11,7 @@ namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [EnableCors("AllowAll")]
+    //[EnableCors("AllowAll")]
     public class ProductController(IProductServices _productServices) : ControllerBase
     {
         [HttpGet, Authorize(Roles = "Admin, User")]
@@ -34,7 +34,7 @@ namespace Ecommerce.Controllers
 
 
         [HttpGet("getById"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<ProductResponseDto>> GetProductById([FromQuery] int id)
+        public async Task<ActionResult<ProductResponseDto>> GetProductById(int id)
         {
             try
             {

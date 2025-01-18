@@ -13,6 +13,6 @@ namespace Ecommerce.Models.ResponseDto
         public int UserId { get; set; }
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
-        public List <ProductResponseDto> Products { get; set; }
+        public List<ProductResponseDto> Products { get; set; }
     }
 }

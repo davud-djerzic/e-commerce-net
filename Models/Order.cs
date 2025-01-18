@@ -6,9 +6,9 @@ namespace Ecommerce.Models
 {
     public enum OrderStatus
     {
-        Cancelled = -1,
-        Pending = 0,
-        Accepted = 1
+        Cancelled = 0,
+        Pending = 1,
+        Accepted = 2
     }
     public class Order
     {

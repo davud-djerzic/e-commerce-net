@@ -11,7 +11,7 @@ namespace Ecommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [EnableCors("AllowAll")]
+    //[EnableCors("AllowAll")]
     public class AuthContoller(IAuthService _authService) : ControllerBase
     {
         [HttpGet, Authorize(Roles = "Admin")] 
@@ -33,7 +33,7 @@ namespace Ecommerce.Controllers
         }
 
         [HttpGet("getById"), Authorize(Roles = "Admin")]
-        public async Task<ActionResult<User>> GetUserById([FromQuery] int id)
+        public async Task<ActionResult<User>> GetUserById(int id)
         {
             try
             {

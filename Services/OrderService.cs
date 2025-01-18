@@ -523,7 +523,7 @@ namespace Ecommerce.Services
             List<OrderProduct> orderProductList = await _context.OrderProducts.Where(op => op.OrderId == id).ToListAsync();
             if (orderProductList.Count == 0) throw new NotFoundException("Order products not found");
             
-            generatePdfService.GeneratePdfFile(orderProductList);
+            await generatePdfService.GeneratePdfFile(orderProductList);
             //var questPdf = new GeneratePdfService(_context);
             //questPdf.GeneratePdfFile(orderProductList);
 
@@ -534,9 +534,11 @@ namespace Ecommerce.Services
                 throw new Exception("PDF generation failed or file not found.");
             }
 
-            string tekst = "Your order with is " + order.OrderStatusMessage.ToLower();
+            string tekst = "Your order is " + order.OrderStatusMessage.ToLower();
 
-            await sendGridService.SendEmailAsync("Admin", user.FirstName, "Information about order", user.Email, tekst, path);
+            SendGridModel sendGrid = new SendGridModel("Admin", user.FirstName, "Information about order", user.Email, tekst, path);
+
+            await sendGridService.SendEmailAsync(sendGrid);
             
             await _context.SaveChangesAsync();
         }

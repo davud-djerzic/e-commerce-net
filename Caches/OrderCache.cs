@@ -7,12 +7,21 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Text.Json;
 using Ecommerce.Caches.Interfaces;
 using Ecommerce.Models.ResponseDto;
+using Ecommerce.Configs;
+using Microsoft.Extensions.Options;
 
 namespace Ecommerce.Caches
 {
     public class OrderCache : IOrderCache
     {
-        private readonly IDatabase _store = ConnectionMultiplexer.Connect("localhost").GetDatabase();
+        private readonly IDatabase _store;
+
+        public OrderCache(IOptions<RedisConfig> config)
+        {
+            var redisConfig = config.Value;
+            var connection = $"{redisConfig.Host}:{redisConfig.Port}";
+            _store = ConnectionMultiplexer.Connect(connection).GetDatabase();
+        }
 
         public async Task AddOrderProduct(Order order)
         {

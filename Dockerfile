@@ -1,11 +1,10 @@
-# Koristi .NET SDK sliku za izgradnju aplikacije
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /src
 
 # Kopiraj projekte i restore zavisnosti
-COPY ["Ecommerce/Ecommerce.csproj", "Ecommerce/"]
-RUN dotnet restore "Ecommerce/Ecommerce.csproj"
+COPY ["E-commerceAPI.csproj", "Ecommerce/"]
+RUN dotnet restore "Ecommerce/Ecommerce/Ecommerce.csproj"
 
 # Kopiraj ostatak fajlova i izgradnja aplikacije
 COPY . .

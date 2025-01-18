@@ -11,9 +11,20 @@ using Ecommerce.Services.ServiceInterfaces;
 using StackExchange.Redis;
 using Ecommerce.Caches.Interfaces;
 using Ecommerce.Caches;
+using Ecommerce.Configs;
+using Microsoft.Extensions.Configuration;
+using DotNetEnv;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+Env.Load();
+
+// Dodaj konfiguraciju iz appsettings.json
+builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
+// Dodaj vrednosti iz environment varijabli (koje ukljuèuju vrednosti iz .env fajla)
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -21,10 +32,6 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = null;
     });
 
-// Add services to the container.
-
-//builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
@@ -35,7 +42,8 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Create conection with database
+
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -75,6 +83,9 @@ builder.Services.AddScoped<ISendGridService, SendGridService>();
 builder.Services.AddScoped<IGeneratePdfService, GeneratePdfService>();
 builder.Services.AddScoped<IOrderCache, OrderCache>();
 
+builder.Services.Configure<SendGridConfig>(builder.Configuration.GetSection("SendGridConfig"));
+builder.Services.Configure<RedisConfig>(builder.Configuration.GetSection("RedisConfig"));
+
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -97,6 +108,12 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+using(var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    dbContext.Database.Migrate();
+}
+
 app.UseCors("AllowAll");
 
 app.Use(async (context, next) =>
@@ -110,9 +127,6 @@ app.Use(async (context, next) =>
     await next(); 
 });
 
-//app.MapGet("/", () => "Hello World!");
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();

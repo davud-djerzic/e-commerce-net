@@ -1,39 +1,42 @@
 ﻿using SendGrid.Helpers.Mail;
 using SendGrid;
 using Ecommerce.Services.ServiceInterfaces;
+using Ecommerce.Models;
+using Ecommerce.Configs;
+using Microsoft.Extensions.Options;
 
 namespace Ecommerce.Services
 {
     public class SendGridService : ISendGridService
     {
-        private readonly string sendGridApiKey;
+        private readonly SendGridConfig _config;
 
-        public SendGridService(IConfiguration configuration)
+        public SendGridService(IOptions<SendGridConfig> config)
         {
-            sendGridApiKey = configuration["SendGrid:ApiKey"];
+            _config = config.Value;
         }
 
-        public async Task SendEmailAsync(string senderName, string receiverName, string subjectText, string receiverEmail, string text, string path)
+        public async Task SendEmailAsync(SendGridModel sendGrid)
         {
             //string apiKey = Environment.GetEnvironmentVariable("SendGrid_ApiKey");
-            if (string.IsNullOrEmpty(sendGridApiKey))
+            if (string.IsNullOrEmpty(_config.ApiKey))
             {
                 throw new Exception("SendGrid API key is not configured.");
             }
-            var client = new SendGridClient(sendGridApiKey);
-            var from = new EmailAddress("djerzicd831@gmail.com", senderName);
-            var subject = subjectText;
-            var to = new EmailAddress(receiverEmail, receiverEmail);
-            var plainTextContent = text;
-            var htmlContent = text;
+            var client = new SendGridClient(_config.ApiKey);
+            var from = new EmailAddress(_config.SenderEmail, sendGrid.senderName);
+            var subject = sendGrid.subjectText;
+            var to = new EmailAddress(sendGrid.receiverEmail, sendGrid.receiverName);
+            var plainTextContent = sendGrid.text;
+            var htmlContent = sendGrid.text;
             var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
 
-            if (File.Exists(path))
+            if (File.Exists(sendGrid.path))
             {
-                byte[] fileBytes = File.ReadAllBytes(path);
+                byte[] fileBytes = File.ReadAllBytes(sendGrid.path);
                 string fileBase64 = Convert.ToBase64String(fileBytes);
 
-                msg.AddAttachment(Path.GetFileName(path), fileBase64);
+                msg.AddAttachment(Path.GetFileName(sendGrid.path), fileBase64);
             }
             else
             {

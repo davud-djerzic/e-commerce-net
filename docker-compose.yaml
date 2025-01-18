@@ -9,9 +9,10 @@ services:
       - "8080:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5433;Database=Ecommerce;Username=davud;Password=davud"
-      Redis__Connection: "redis:6379"
-      SendGrid_ApiKey: "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"
+      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
+      Redis__Connection: ${Redis__Connection}
+      SendGrid_ApiKey: ${SendGrid_ApiKey}
+
     depends_on:
       - postgres
       - redis
@@ -22,9 +23,9 @@ services:
     ports:
       - "5434:5433"
     environment:
-      POSTGRES_USER: davud
-      POSTGRES_PASSWORD: davud
-      POSTGRES_DB: Ecommerce
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
 
   redis:
     image: redis:latest

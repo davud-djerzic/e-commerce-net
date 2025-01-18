@@ -126,8 +126,14 @@ namespace Ecommerce.Services
             Product? product = await _context.Products.FindAsync(id);
             if (product == null) throw new NotFoundException($"Product {id} not found");
 
-            bool productExists = await _context.Products.AnyAsync(p => p.ProductCode == productDto.ProductCode || p.ProductName == productDto.ProductName);
-            if (productExists) throw new BadRequestException("Product already exists");
+            string productName = product.ProductName;
+            List<Product> existedProducts = await _context.Products.Where(p => p.ProductName != productName).ToListAsync();
+            foreach (Product pro in existedProducts)
+            {
+                if (pro.ProductName == productDto.ProductName || pro.ProductCode == productDto.ProductCode) throw new BadRequestException($"Product already exists");
+            }
+            ////bool productExists = await _context.Products.AnyAsync(p => p.ProductCode == productDto.ProductCode || p.ProductName == productDto.ProductName);
+            //if (productExists) throw new BadRequestException("Product already exists");
 
             product.GetProductFromDto(product, productDto);
 
